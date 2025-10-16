@@ -13,17 +13,19 @@ see ANNpt_main.py
 see ANNpt_main.py
 
 # Description:
-AEANNpt AEANN globalDefs
+RPIANNpt globalDefs
 
 """
 
-trainLocal = True	#default: False #disable for debug/benchmark against standard full layer backprop
+printRPIANNmodelProperties = True
+
+trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
 
 #dataset parameters:
-useImageDataset = False	#use CIFAR-10 dataset with CNN 
+useImageDataset = False 	#not currently supported	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
-	useCNNlayers = True		#mandatory:True
+	useCNNlayers = False		#not currently supported
 else:
 	useTabularDataset = True
 	useCNNlayers = False	 #default:False	#optional	#enforce different connection sparsity across layers to learn unique features with greedy training	#use 2D CNN instead of linear layers
@@ -52,25 +54,16 @@ if(useCNNlayers):
 else:
 	CNNmaxPool = False
 	CNNbatchNorm = False
-		
-#training update implementation parameters:
-trainingUpdateImplementation = "backprop"	# single hidden layer AEANN backprop
 
-#activation function parameters:
-activationFunctionTypeForward = "relu"
-activationFunctionTypeBackward = "relu"	#default: relu	#orig: "sigmoid" (used sigmoid for consistency with AEANNtf)	#for useAutoencoder
-
-#loss function parameters:
-useInbuiltCrossEntropyLossFunction = True	#required
-
-#sublayer parameters:	
-simulatedDendriticBranches = False	#optional	#performTopK selection of neurons based on local inhibition - equivalent to multiple independent fully connected weights per neuron (SDBANN)
-useLinearSublayers = False
+if(useTabularDataset):
+	datasetType = "useTabularDataset"
+elif(useImageDataset):
+	datasetType = "useImageDataset"
 
 #training epoch parameters:
 trainNumberOfEpochsHigh = False	#use ~4x more epochs to train
 
 #data storage parameters:
-workingDrive = '/large/source/ANNpython/AEANNpt/'
+workingDrive = '/large/source/ANNpython/RPIANNpt/'
 dataDrive = workingDrive	#'/datasets/'
-modelName = 'modelAEANN'
+modelName = 'modelRPIANN'

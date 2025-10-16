@@ -171,6 +171,7 @@ datasetCorrectMissingValues = False
 datasetConvertClassTargetColumnFloatToInt = False
 dataloaderRepeatSampler = False	
 dataloaderRepeatLoop = False		#legacy (depreciate)
+datasetRepeatSize = -1
 
 if(useTabularDataset):
 	#datasetName = 'tabular-benchmark'	#expected test accuracy: ~63%

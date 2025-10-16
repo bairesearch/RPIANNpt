@@ -30,3 +30,12 @@ pip install torchsummary
 source activate pytorchsenv
 python ANNpt_main.py
 ```
+
+## Recursive Prediction Improvement
+
+![RecursivePredictionImprovementImplementation1a.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementImplementation1a.png?raw=true)
+
+## Recursive Prediction Improvement vs Backprop performance
+
+![RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png?raw=true)
+

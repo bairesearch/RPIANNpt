@@ -13,7 +13,7 @@ see ANNpt_main.py
 see ANNpt_main.py
 
 # Description:
-RPIANNpt_RPIANN Autoencoder/Breakaway generated artificial neural network
+RPIANNpt Recursive Prediction Improvement artificial neural network
 
 """
 
@@ -26,9 +26,26 @@ def createModel(dataset):
 	datasetSize = ANNpt_data.getDatasetSize(dataset, printSize=True)
 	numberOfFeatures = ANNpt_data.countNumberFeatures(dataset)
 	numberOfClasses, numberOfClassSamples = ANNpt_data.countNumberClasses(dataset)
-	
-	print("creating new model")
-	config = RPIANNpt_RPIANNmodel.AEANNconfig(
+
+	if(printRPIANNmodelProperties):
+		print("Creating new model:")
+		print("\t ---")
+		print("\t datasetType = ", datasetType)
+		print("\t stateTrainDataset = ", stateTrainDataset)
+		print("\t stateTestDataset = ", stateTestDataset)
+		print("\t ---")
+		print("\t datasetName = ", datasetName)
+		print("\t datasetRepeatSize = ", datasetRepeatSize)
+		print("\t trainNumberOfEpochs = ", trainNumberOfEpochs)
+		print("\t ---")
+		print("\t batchSize = ", batchSize)
+		print("\t numberOfLayers = ", numberOfLayers)
+		#print("\t numberOfConvlayers = ", numberOfConvlayers)
+		print("\t hiddenLayerSize = ", hiddenLayerSize)
+		print("\t inputLayerSize (numberOfFeatures) = ", numberOfFeatures)
+		print("\t outputLayerSize (numberOfClasses) = ", numberOfClasses)
+		
+	config = RPIANNpt_RPIANNmodel.RPIANNconfig(
 		batchSize = batchSize,
 		numberOfLayers = numberOfLayers,
 		numberOfConvlayers = numberOfConvlayers,
@@ -42,8 +59,8 @@ def createModel(dataset):
 		datasetSize = datasetSize,
 		numberOfClassSamples = numberOfClassSamples
 	)
-	model = RPIANNpt_RPIANNmodel.AEANNmodel(config)
-	
+	model = RPIANNpt_RPIANNmodel.RPIANNmodel(config)
+		
 	print(model)
 	#summary(model, input_size=(3, 32, 32))  # adjust input_size as needed
 

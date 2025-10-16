@@ -13,7 +13,7 @@ see ANNpt_main.py
 see ANNpt_main.py
 
 # Description:
-AEANNpt Autoencoder/Breakaway generated artificial neural network model
+RPIANNpt Recursive Prediction Improvement artificial neural network model
 
 """
 
@@ -25,7 +25,7 @@ import torch.nn.functional as F
 from ANNpt_globalDefs import *
 from torchmetrics.classification import Accuracy
 
-class AEANNconfig():
+class RPIANNconfig():
 	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples):
 		self.batchSize = batchSize
 		self.numberOfLayers = numberOfLayers
@@ -58,7 +58,7 @@ class RecursiveActionLayer(nn.Module):
 		update = pt.tanh(self.action(combined)) * self.action_scale
 		return update
 
-class AEANNmodel(nn.Module):
+class RPIANNmodel(nn.Module):
 		
 	def __init__(self, config):
 		super().__init__()
