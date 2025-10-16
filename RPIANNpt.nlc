@@ -1,0 +1,11 @@
+//RPIANNpt Specification (prompts):
+
+---
+v1a (Codex IDE GPT5Codex prompt);
+
+Please upgrade RPIANNpt_RPIANNmodel to implement this specification;
+
+I have an input embedding x and a prediction embedding y_hat, all encoded in a single recursive MLP layer; the layer decides what best next action the network should take to iteratively improve the prediction embedding y_hat (with respect to the target output embedding y). For simplicity, assume a large random projection from class targets to prediction/target output embedding y_hat/y, and a large random projection from input to input embedding x.
+
+---
+OK please perform this upgrade. When trainLocal=True, then only perform backprop between individual recursive iterations (and never in the input/output embedding layers). If trainLocal=False, then perform full backprop through the entire recursive network.

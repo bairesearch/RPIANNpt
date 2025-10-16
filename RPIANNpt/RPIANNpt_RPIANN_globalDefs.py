@@ -1,0 +1,76 @@
+"""RPIANNpt_RPIANN_globalDefs.py
+
+# Author:
+Richard Bruce Baxter - Copyright (c) 2025 Baxter AI (baxterai.com)
+
+# License:
+MIT License
+
+# Installation:
+see ANNpt_main.py
+
+# Usage:
+see ANNpt_main.py
+
+# Description:
+AEANNpt AEANN globalDefs
+
+"""
+
+trainLocal = True	#default: False #disable for debug/benchmark against standard full layer backprop
+
+#dataset parameters:
+useImageDataset = False	#use CIFAR-10 dataset with CNN 
+if(useImageDataset):
+	useTabularDataset = False
+	useCNNlayers = True		#mandatory:True
+else:
+	useTabularDataset = True
+	useCNNlayers = False	 #default:False	#optional	#enforce different connection sparsity across layers to learn unique features with greedy training	#use 2D CNN instead of linear layers
+
+#CNN parameters:
+if(useCNNlayers):
+	#create CNN architecture, where network size converges by a factor of ~4 (or 2*2) per layer and number of channels increases by the same factor
+	CNNkernelSize = 3
+	CNNstride = 1
+	CNNpadding = "same"
+	useCNNlayers2D = True
+	CNNinputWidthDivisor = 2
+	CNNinputSpaceDivisor = CNNinputWidthDivisor*CNNinputWidthDivisor
+	CNNinputPadding = False
+	CNNmaxInputPadding = False	#pad input with zeros such that CNN is applied to every layer
+	debugCNN = False
+	if(CNNstride == 1):
+		CNNmaxPool = True
+		#assert not supportSkipLayers, "supportSkipLayers not currently supported with CNNstride == 1 and CNNmaxPool"
+	elif(CNNstride == 2):
+		CNNmaxPool = False
+		assert CNNkernelSize==2
+	else:
+		print("error: CNNstride>2 not currently supported")
+	CNNbatchNorm = True
+else:
+	CNNmaxPool = False
+	CNNbatchNorm = False
+		
+#training update implementation parameters:
+trainingUpdateImplementation = "backprop"	# single hidden layer AEANN backprop
+
+#activation function parameters:
+activationFunctionTypeForward = "relu"
+activationFunctionTypeBackward = "relu"	#default: relu	#orig: "sigmoid" (used sigmoid for consistency with AEANNtf)	#for useAutoencoder
+
+#loss function parameters:
+useInbuiltCrossEntropyLossFunction = True	#required
+
+#sublayer parameters:	
+simulatedDendriticBranches = False	#optional	#performTopK selection of neurons based on local inhibition - equivalent to multiple independent fully connected weights per neuron (SDBANN)
+useLinearSublayers = False
+
+#training epoch parameters:
+trainNumberOfEpochsHigh = False	#use ~4x more epochs to train
+
+#data storage parameters:
+workingDrive = '/large/source/ANNpython/AEANNpt/'
+dataDrive = workingDrive	#'/datasets/'
+modelName = 'modelAEANN'
