@@ -21,6 +21,10 @@ printRPIANNmodelProperties = True
 
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
 
+recursiveActionLayers = 1	#default: 1	#or 2
+if(recursiveActionLayers > 1):
+	recursiveActionLayerHiddenDimMultiplier = 2
+
 #dataset parameters:
 useImageDataset = False 	#not currently supported	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
@@ -62,6 +66,7 @@ elif(useImageDataset):
 
 #training epoch parameters:
 trainNumberOfEpochsHigh = False	#use ~4x more epochs to train
+hiddenLayerSizeHigh = True	#use ~4x more hidden neurons (approx equalise number of parameters with ANN)	#large projection from input/output
 
 #data storage parameters:
 workingDrive = '/large/source/ANNpython/RPIANNpt/'

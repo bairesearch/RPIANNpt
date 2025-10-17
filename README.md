@@ -39,3 +39,9 @@ python ANNpt_main.py
 
 ![RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png?raw=true)
 
+RPIANNpt tests conducted with settings;
+```
+recursion_steps = "numberOfLayers" (lay+1)
+recursiveActionLayers = 1 (MLP sublayers per recursive step)
+hiddenLayerSizeHigh = True (units*4)
+```

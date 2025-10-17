@@ -41,15 +41,22 @@ class RPIANNconfig():
 		self.numberOfClassSamples = numberOfClassSamples
 
 class RecursiveActionLayer(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim=None, action_scale=0.25):
+	def __init__(self, embedding_dim, action_scale=0.25):
 		super().__init__()
-		if(hidden_dim is None):
-			hidden_dim = embedding_dim * 2
-		self.action = nn.Sequential(
-			nn.Linear(embedding_dim * 2, hidden_dim),
-			nn.ReLU(),
-			nn.Linear(hidden_dim, embedding_dim)
-		)
+		if(recursiveActionLayers == 1):
+			self.action = nn.Sequential(
+				nn.Linear(embedding_dim * 2, embedding_dim),
+				nn.ReLU(),
+			)
+		elif(recursiveActionLayers == 2):
+			hidden_dim = embedding_dim * recursiveActionLayerHiddenDimMultiplier
+			self.action = nn.Sequential(
+				nn.Linear(embedding_dim * 2, hidden_dim),
+				nn.ReLU(),
+				nn.Linear(hidden_dim, embedding_dim)
+			)
+		else:
+			printe("invalid number recursiveActionLayers")
 		self.action_scale = action_scale
 
 	def forward(self, x_embed, y_hat):

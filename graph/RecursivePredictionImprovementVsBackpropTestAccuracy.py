@@ -7,8 +7,11 @@ def subset(arr, subsetMask):
 	
 graphedDatasets = [False, False, True, True, True, True, True, True, True, True, True, True, True] 	#tested datasets
 
-y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, 66.85, 95.45]
-y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]	
+y1_values = [95.82, 91.59, 62.86, 70.17, 90.15, 58.13, 91.41, 61.23, 85.54, 85.77, 92.14, 66.85, 95.45]		#ANN full backprop (from AEANNpt codebase)
+y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 90.90]		#RPIANN recursiveActionLayers=1 + hiddenLayerSizeHigh + higgs batchSize=4096
+#y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN recursiveActionLayers=2 with full backprop
+#y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN recursiveActionLayers=2
+
 #covertype with trainNumberOfEpochsHigh=False
 
 group_labels = ["CIFAR-10 Resnet-18", "CIFAR-10 Conv-9", "tabular-benchmark", "blog-feedback", "titanic", "red-wine", "breast-cancer-wisconsin", "diabetes-readmission", "banking-marketing", "adult_income_dataset", "covertype", "higgs", "new-thyroid"]

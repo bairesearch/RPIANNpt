@@ -313,7 +313,7 @@ if(useTabularDataset):
 		numberOfLayers = 4
 		#numberOfLayers = 2
 		hiddenLayerSize = 256	#default: 256
-		batchSize = 64		#4096	#default: 64
+		batchSize = 4096		#orig: 64	#high batch size applied to speed up training
 		trainNumberOfEpochs = 10
 		datasetLocalFileOptimise = False	#default: False
 	elif(datasetName == 'new-thyroid'):
@@ -382,7 +382,9 @@ if(useImageDataset):
 
 if(trainNumberOfEpochsHigh):
 	trainNumberOfEpochs = trainNumberOfEpochs*4
-	
+if(hiddenLayerSizeHigh):
+	hiddenLayerSize = hiddenLayerSize*4
+		
 if(debugSmallBatchSize):
 	batchSize = 10
 if(debugSmallNetwork):
