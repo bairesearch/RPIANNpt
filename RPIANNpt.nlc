@@ -8,4 +8,18 @@ Please upgrade RPIANNpt_RPIANNmodel to implement this specification;
 I have an input embedding x and a prediction embedding y_hat, all encoded in a single recursive MLP layer; the layer decides what best next action the network should take to iteratively improve the prediction embedding y_hat (with respect to the target output embedding y). For simplicity, assume a large random projection from class targets to prediction/target output embedding y_hat/y, and a large random projection from input to input embedding x.
 
 ---
+trainLocal (Codex IDE GPT5Codex prompt:
+
 OK please perform this upgrade. When trainLocal=True, then only perform backprop between individual recursive iterations (and never in the input/output embedding layers). If trainLocal=False, then perform full backprop through the entire recursive network.
+
+---
+useCNNlayers (Codex IDE GPT5Codex prompt:
+
+input_projection should be changed to an untrained CNN layer when useImageDataset=True (that still produces the correct embedding size
+
+---
+useRecursiveLayers (Codex IDE GPT5Codex prompt:
+
+Please implement option useRecursiveLayers=False (while leaving the current implementation for useRecursiveLayers=True unchanged). If useRecursiveLayers=False then;
+a) class RPIANNmodel creates independent nonrecursive_layer object (ie parameters) for each layer - instead of a single recursive_layer object.
+b) class RPIANNmodel: iterate_prediction() and _train_recursive_locally() functions are updated to execute using these nonrecursive_layer objects (instead of the recursive_layer object).

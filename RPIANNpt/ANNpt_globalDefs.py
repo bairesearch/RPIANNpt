@@ -17,6 +17,9 @@ ANNpt globalDefs
 
 """
 
+stateTrainDataset = True
+stateTestDataset = True
+
 #algorithm selection
 useAlgorithmVICRegANN = False
 useAlgorithmAUANN = False
@@ -149,9 +152,6 @@ else:
 	pt.set_printoptions(sci_mode=False)
 	
 #pt.autograd.set_detect_anomaly(True)
-
-stateTrainDataset = True
-stateTestDataset = True
 
 if(useCustomWeightInitialisation):
 	Wmean = 0.0
@@ -300,7 +300,7 @@ if(useTabularDataset):
 		#numberOfLayers = 2
 		#hiddenLayerSize = 512*4
 		trainNumberOfEpochs = 10		#train performance increases with higher epochs
-		trainNumberOfEpochsHigh = False	#orig: True
+		#orig: trainNumberOfEpochsHigh = True
 	elif(datasetName == 'higgs'):
 		datasetLocalFile = True		#manually download higgs.zip:HIGGS.csv from https://archive.ics.uci.edu/dataset/280/higgs
 		#echo "class,lepton_pT,lepton_eta,lepton_phi,missing_energy_magnitude,missing_energy_phi,jet1pt,jet1eta,jet1phi,jet1b,jet2pt,jet2eta,jet2phi,jet2b,jet3pt,jet3eta,jet3phi,jet3b,jet4pt,jet4eta,jet4phi,jet4b,m_jj,m_jjj,m_lv,m_jlv,m_bb,m_wbb,m_wwbb" | cat - HIGGS.csv > HIGGSwithHeader.csv
@@ -328,7 +328,7 @@ if(useTabularDataset):
 		numberOfLayers = 3	#default: 3	#orig: 2, 4
 		hiddenLayerSize = 16	#default: 16	#orig: 4, 10
 		#batchSize = 1
-		trainNumberOfEpochs = 100	#default: 100
+		trainNumberOfEpochs = 10	#default: 10	#orig: 100
 		datasetRepeat = True	#enable better sampling by dataloader with high batchSize (required if batchSize ~= datasetSize)
 		if(datasetRepeat):
 			datasetRepeatSize = 100	#for batchSize ~= 64
@@ -349,26 +349,27 @@ if(useTabularDataset):
 			dataloaderRepeatSamplerCustom = False	#no tqdm visualisation
 			assert not dataloaderShuffle	#dataloaderShuffle is not supported by dataloaderRepeatSampler
 if(useImageDataset):
-	#currently assume CIFAR-10 dataset	#expected test accuracy: ~91%
+	datasetName = "CIFAR10"	#currently assume CIFAR-10 dataset	#expected test accuracy: ~91%
+	numberOfClasses = 10
 	warmupEpochs = 5 	#default: 5	#orig: 0
 	learningRate = 0.001	#default: 0.001 (or 0.01)	#orig: 0.005
 	momentum = 0.9     #default: 0.9	#orig: 0.0
 	weightDecay  = 5e-4    #default: 5e-4	#orig: 0.0
-	batchSize = 128	 #default: 128	#orig: 64
-	numberOfConvlayers = 6	#rest will be linear	#orig: 2	#default: 2, 4, 6
-	numberOfLayers = numberOfConvlayers+3	#counts hidden and output layers (not input layer)
-	#numberOfLayers = 2
-	#numberOfConvlayers = 0
-	numberInputImageChannels = 3
-	CNNhiddenLayerSize = 3*32*32 * 4	#default: CIFAR-10 image size = 3*32*32=3072
-	if(numberOfConvlayers >= 4):
-		CNNconvergeEveryEvenLayer = True	#default: True for numberOfConvlayers 4 or 6	#orig: False
-		assert numberOfConvlayers%2 == 0
-	else:
-		CNNconvergeEveryEvenLayer = False
-	hiddenLayerSize = 1024
+	batchSize = 1024	#128	 #default: 128	#orig: 64
+	numberInputImageChannels = 3	#default: CIFAR-10 channels
+	inputImageHeight = 32	#default: CIFAR-10 image size
+	inputImageWidth = 32	#default: CIFAR-10 image size
+	CNNinputShape = [numberInputImageChannels, inputImageHeight, inputImageWidth]	#default: CIFAR-10 image size = 3*32*32=3072
+	if(not useAlgorithmRPIANN):
+		CNNhiddenLayerSize = numberInputImageChannels*inputImageHeight*inputImageWidth * 4	
+		if(numberOfConvlayers >= 4):
+			CNNconvergeEveryEvenLayer = True	#default: True for numberOfConvlayers 4 or 6	#orig: False
+			assert numberOfConvlayers%2 == 0
+		else:
+			CNNconvergeEveryEvenLayer = False
+	hiddenLayerSize = 2048	#1024
 	disableDatasetCache = False
-	imageDatasetAugment = False
+	imageDatasetAugment = True
 	if(imageDatasetAugment):
 		trainNumberOfEpochs = 100	#default: 100
 	else:
@@ -384,7 +385,9 @@ if(trainNumberOfEpochsHigh):
 	trainNumberOfEpochs = trainNumberOfEpochs*4
 if(hiddenLayerSizeHigh):
 	hiddenLayerSize = hiddenLayerSize*4
-		
+
+#numberOfLayers = 1  #temp testing without recursive layers
+
 if(debugSmallBatchSize):
 	batchSize = 10
 if(debugSmallNetwork):

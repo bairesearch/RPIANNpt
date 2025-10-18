@@ -45,3 +45,11 @@ recursion_steps = "numberOfLayers" (lay+1)
 recursiveActionLayers = 1 (MLP sublayers per recursive step)
 hiddenLayerSizeHigh = True (units*4)
 ```
+
+### Related Work
+
+* Breakaway Network (https://github.com/bairesearch/AEANNpt)
+* Recursive Transformer (https://github.com/bairesearch/TSBNLPpt)
+* Li, Q., Teh, Y. W., & Pascanu, R. (2025). NoProp: Training Neural Networks without Back-propagation or Forward-propagation. arXiv preprint arXiv:2503.24322.
+* Wang, G., Li, J., Sun, Y., Chen, X., Liu, C., Wu, Y., ... & Yadkori, Y. A. (2025). Hierarchical Reasoning Model. arXiv preprint arXiv:2506.21734. (outer refinement loop)
+* Jolicoeur-Martineau, A. (2025). Less is More: Recursive Reasoning with Tiny Networks. arXiv preprint arXiv:2510.04871. (outer refinement loop)

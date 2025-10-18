@@ -27,6 +27,10 @@ def createModel(dataset):
 	numberOfFeatures = ANNpt_data.countNumberFeatures(dataset)
 	numberOfClasses, numberOfClassSamples = ANNpt_data.countNumberClasses(dataset)
 
+	if(useImageDataset):
+		inputImageShape = CNNinputShape
+	else:
+		inputImageShape = None
 	if(printRPIANNmodelProperties):
 		print("Creating new model:")
 		print("\t ---")
@@ -57,7 +61,8 @@ def createModel(dataset):
 		numberOfFeatures = numberOfFeatures,
 		numberOfClasses = numberOfClasses,
 		datasetSize = datasetSize,
-		numberOfClassSamples = numberOfClassSamples
+		numberOfClassSamples = numberOfClassSamples,
+		inputImageShape = inputImageShape,
 	)
 	model = RPIANNpt_RPIANNmodel.RPIANNmodel(config)
 		
