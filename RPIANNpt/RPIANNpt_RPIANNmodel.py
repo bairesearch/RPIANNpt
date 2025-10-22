@@ -42,12 +42,13 @@ class RPIANNconfig():
 		self.inputImageShape = inputImageShape
 
 class _ActionLayerBase(nn.Module):
-	def __init__(self, embedding_dim, action_scale=0.25):
+	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
 		super().__init__()
+		activation_module = nn.ReLU() if use_activation else nn.Identity()
 		if(numberOfSublayers == 1):
 			self.action = nn.Sequential(
 				nn.Linear(embedding_dim * 2, embedding_dim),
-				nn.ReLU(),
+				activation_module,
 			)
 		elif(numberOfSublayers == 2):
 			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
@@ -67,12 +68,12 @@ class _ActionLayerBase(nn.Module):
 		return update
 
 class RecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale=0.25):
-		super().__init__(embedding_dim, action_scale)
+	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
+		super().__init__(embedding_dim, action_scale, use_activation)
 
 class NonRecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale=0.25):
-		super().__init__(embedding_dim, action_scale)
+	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
+		super().__init__(embedding_dim, action_scale, use_activation)
 
 class RPIANNmodel(nn.Module):
 		
@@ -86,6 +87,7 @@ class RPIANNmodel(nn.Module):
 
 		self.using_image_projection = useCNNlayers
 		self.use_recursive_layers = useRecursiveLayers
+		self.use_target_projection_activation = targetProjectionActivationFunction
 		if(self.using_image_projection):
 			self.input_projection = self._build_image_projection(config)
 			for param in self.input_projection.parameters():
@@ -99,14 +101,15 @@ class RPIANNmodel(nn.Module):
 		self.target_projection = nn.Linear(config.outputLayerSize, self.embedding_dim, bias=False)
 		self._initialise_random_linear(self.target_projection)
 		self.target_projection.weight.requires_grad_(False)
+		self.target_projection_activation = nn.ReLU() if self.use_target_projection_activation else nn.Identity()
 
 		self.initial_predictor = nn.Linear(self.embedding_dim, self.embedding_dim)
 		if(self.use_recursive_layers):
-			self.recursive_layer = RecursiveActionLayer(self.embedding_dim)
+			self.recursive_layer = RecursiveActionLayer(self.embedding_dim, use_activation=self.use_target_projection_activation)
 			self.nonrecursive_layers = None
 		else:
 			self.recursive_layer = None
-			self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim) for _ in range(self.recursion_steps)])
+			self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim, use_activation=self.use_target_projection_activation) for _ in range(self.recursion_steps)])
 		if(useClassificationLayerLoss):
 			self.embedding_loss_weight = 0.1
 
@@ -169,14 +172,15 @@ class RPIANNmodel(nn.Module):
 		return projection
 
 	def _compute_total_loss(self, y_hat, target_embedding, y):
-		logits = self.project_to_classes(y_hat)
+		activated_y_hat = self.target_projection_activation(y_hat)
+		logits = self.project_to_classes(activated_y_hat)
 		classification_loss = self.lossFunctionFinal(logits, y)
-		embedding_alignment_loss = F.mse_loss(y_hat, target_embedding)
+		embedding_alignment_loss = F.mse_loss(activated_y_hat, target_embedding)
 		if(useClassificationLayerLoss):
 			total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
 		else:
 			total_loss = embedding_alignment_loss
-		return total_loss, logits, classification_loss, embedding_alignment_loss
+		return total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat
 
 	def encode_input(self, x):
 		if(self.using_image_projection):
@@ -191,7 +195,9 @@ class RPIANNmodel(nn.Module):
 
 	def encode_targets(self, y):
 		y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
-		return self.target_projection(y_one_hot)
+		target_embedding = self.target_projection(y_one_hot)
+		target_embedding = self.target_projection_activation(target_embedding)
+		return target_embedding
 
 	def initialise_prediction(self, x_embed):
 		return pt.tanh(self.initial_predictor(x_embed))
@@ -209,7 +215,7 @@ class RPIANNmodel(nn.Module):
 		opt = self._resolve_local_optimizer(optim, index)
 		if opt is not None:
 			y_hat = forward_fn()
-			total_loss, _, _, _ = self._compute_total_loss(y_hat, target_embedding, y)
+			total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y)
 			opt.zero_grad()
 			total_loss.backward()
 			opt.step()
@@ -251,10 +257,10 @@ class RPIANNmodel(nn.Module):
 			target_embedding = target_embedding.detach()
 			y_hat = self._train_recursive_locally(x_embed, target_embedding, y, optim)
 			with pt.no_grad():
-				total_loss, logits, classification_loss, embedding_alignment_loss = self._compute_total_loss(y_hat, target_embedding, y)
+				total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat = self._compute_total_loss(y_hat, target_embedding, y)
 			loss = total_loss.detach()
 			accuracy = self.accuracyFunction(logits, y)
-			self.last_y_hat = y_hat
+			self.last_y_hat = activated_y_hat.detach()
 			self.last_logits = logits.detach()
 			return loss, accuracy
 		else:
@@ -263,9 +269,9 @@ class RPIANNmodel(nn.Module):
 			target_embedding = target_embedding.detach()
 			y_hat_initial = self.initialise_prediction(x_embed)
 			y_hat = self.iterate_prediction(x_embed, y_hat_initial)
-			total_loss, logits, _, _ = self._compute_total_loss(y_hat, target_embedding, y)
+			total_loss, logits, _, _, activated_y_hat = self._compute_total_loss(y_hat, target_embedding, y)
 			accuracy = self.accuracyFunction(logits, y)
-			self.last_y_hat = y_hat.detach()
+			self.last_y_hat = activated_y_hat.detach()
 			self.last_logits = logits.detach()
 			return total_loss, accuracy
 

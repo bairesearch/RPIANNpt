@@ -15,9 +15,9 @@ replacesubstring "#datasetName = 'banking-marketing'" "datasetName = 'banking-ma
 python ANNpt_main.py
 replacesubstring "#datasetName = 'adult_income_dataset'" "datasetName = 'adult_income_dataset'" ANNpt_globalDefs.py
 python ANNpt_main.py
-replacesubstring "#datasetName = 'covertype'" "datasetName = 'covertype'" ANNpt_globalDefs.py
-python ANNpt_main.py
-replacesubstring "#datasetName = 'higgs'" "datasetName = 'higgs'" ANNpt_globalDefs.py
-python ANNpt_main.py
+#replacesubstring "#datasetName = 'covertype'" "datasetName = 'covertype'" ANNpt_globalDefs.py
+#python ANNpt_main.py
+#replacesubstring "#datasetName = 'higgs'" "datasetName = 'higgs'" ANNpt_globalDefs.py
+#python ANNpt_main.py
 replacesubstring "#datasetName = 'new-thyroid'" "datasetName = 'new-thyroid'" ANNpt_globalDefs.py
 python ANNpt_main.py

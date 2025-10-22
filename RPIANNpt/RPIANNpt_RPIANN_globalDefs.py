@@ -33,13 +33,14 @@ if(numberOfSublayers > 1):
 useImageDataset = False 	#not currently supported	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
-	useCNNlayers = True		
+	useCNNlayers = True
 else:
 	useTabularDataset = True
 	useCNNlayers = False
 		
 #CNN parameters:
-inputProjectionActivationFunction = False
+inputProjectionActivationFunction = True
+targetProjectionActivationFunction = False
 if(useImageDataset):
 	hiddenLayerSize = 2048	#2048
 	if(useCNNlayers):
