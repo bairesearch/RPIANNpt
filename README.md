@@ -35,16 +35,38 @@ python ANNpt_main.py
 
 ![RecursivePredictionImprovementImplementation1a.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementImplementation1a.png?raw=true)
 
-## Recursive Prediction Improvement vs Backprop performance
+## RPIANN vs Backprop performance (classification layer loss)
 
 ![RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png?raw=true)
 
 RPIANNpt tests conducted with settings;
 ```
-recursion_steps = "numberOfLayers" (lay+1)
-recursiveActionLayers = 1 (MLP sublayers per recursive step)
+useRecursiveLayers = True
+useClassificationLayerLoss = True (uses backprop calculations from target layer loss)
+numberOfLayers = (lay+1)
+numberOfSublayers = 1 (sublayers per layer)
 hiddenLayerSizeHigh = True (units*4)
+inputProjectionActivationFunction = False
+useImageDataset = False
 ```
+
+## RPIANN vs Backprop performance (embedding layer loss)
+
+![RPIANNtestAccuracyImageDataset-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNtestAccuracyImageDataset-SMALL.png?raw=true)
+
+RPIANNpt tests conducted with settings;
+```
+useRecursiveLayers = False
+useClassificationLayerLoss = False (uses embedding layer loss calculated by reverse projection from target layer)
+numberOfLayers = 1
+numberOfSublayers = 1 (sublayers per layer)
+hiddenLayerSizeHigh = True
+inputProjectionActivationFunction = True
+useImageDataset = True
+useCNNlayers = True
+numberOfConvlayers = 1
+```
+
 
 ### Related Work
 

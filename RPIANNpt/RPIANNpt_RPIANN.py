@@ -48,6 +48,9 @@ def createModel(dataset):
 		print("\t hiddenLayerSize = ", hiddenLayerSize)
 		print("\t inputLayerSize (numberOfFeatures) = ", numberOfFeatures)
 		print("\t outputLayerSize (numberOfClasses) = ", numberOfClasses)
+		print("\t ---")
+		print("\t useRecursiveLayers = ", useRecursiveLayers)
+		print("\t numberOfSublayers = ", numberOfSublayers)
 		
 	config = RPIANNpt_RPIANNmodel.RPIANNconfig(
 		batchSize = batchSize,

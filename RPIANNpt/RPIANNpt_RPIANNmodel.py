@@ -26,7 +26,7 @@ from ANNpt_globalDefs import *
 from torchmetrics.classification import Accuracy
 
 class RPIANNconfig():
-	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None, CNNactivationFunction=False):
+	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None):
 		self.batchSize = batchSize
 		self.numberOfLayers = numberOfLayers
 		self.numberOfConvlayers = numberOfConvlayers
@@ -44,20 +44,20 @@ class RPIANNconfig():
 class _ActionLayerBase(nn.Module):
 	def __init__(self, embedding_dim, action_scale=0.25):
 		super().__init__()
-		if(recursiveActionLayers == 1):
+		if(numberOfSublayers == 1):
 			self.action = nn.Sequential(
 				nn.Linear(embedding_dim * 2, embedding_dim),
 				nn.ReLU(),
 			)
-		elif(recursiveActionLayers == 2):
-			hidden_dim = embedding_dim * recursiveActionLayerHiddenDimMultiplier
+		elif(numberOfSublayers == 2):
+			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
 			self.action = nn.Sequential(
 				nn.Linear(embedding_dim * 2, hidden_dim),
 				nn.ReLU(),
 				nn.Linear(hidden_dim, embedding_dim)
 			)
 		else:
-			printe("invalid number recursiveActionLayers")
+			printe("invalid number numberOfSublayers")
 		self.action_scale = action_scale
 
 	def forward(self, x_embed, y_hat):
@@ -107,7 +107,8 @@ class RPIANNmodel(nn.Module):
 		else:
 			self.recursive_layer = None
 			self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim) for _ in range(self.recursion_steps)])
-		self.embedding_loss_weight = 0.1
+		if(useClassificationLayerLoss):
+			self.embedding_loss_weight = 0.1
 
 		self.lossFunctionFinal = nn.CrossEntropyLoss()
 		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
@@ -171,7 +172,10 @@ class RPIANNmodel(nn.Module):
 		logits = self.project_to_classes(y_hat)
 		classification_loss = self.lossFunctionFinal(logits, y)
 		embedding_alignment_loss = F.mse_loss(y_hat, target_embedding)
-		total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
+		if(useClassificationLayerLoss):
+			total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
+		else:
+			total_loss = embedding_alignment_loss
 		return total_loss, logits, classification_loss, embedding_alignment_loss
 
 	def encode_input(self, x):

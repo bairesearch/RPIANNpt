@@ -8,12 +8,15 @@ def subset(arr, subsetMask):
 graphedDatasets = [False, False, True, True, True, True, True, True, True, True, True, True, True] 	#tested datasets
 
 y1_values = [95.82, 91.59, 62.86, 70.17, 90.15, 58.13, 91.41, 61.23, 85.54, 85.77, 92.14, 66.85, 95.45]		#ANN full backprop (from AEANNpt codebase)
-y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 90.90]		#RPIANN recursiveActionLayers=1 + hiddenLayerSizeHigh
-#y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN recursiveActionLayers=2 with full backprop
-#y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN recursiveActionLayers=2
-#y2_values = [0.0, 0.0, 60.83, 70.18, 88.31, 43.75, 98.05, 58.24, 88.35, 85.26, , , 86.35]		#RPIANN recursiveActionLayers=1 + hiddenLayerSizeHigh + inputProjectionActivationFunction
-#y2_values = [0.0, 0.0, 61.38, 69.88, 86.50, 61.25, 72.66, 58.17, 85.92, 83.68, 83.74, 64.22, 90.90]		#RPIANN recursiveActionLayers=1 + hiddenLayerSizeHigh + numberOfLayers=1 (ie lay=1)
-#y2_values = [0.0, 0.0, 59.51, 69.75, 87.86, 56.87, 76.76, 59.83, 87.23, 85.24, , , 90.95]		#RPIANN recursiveActionLayers=1 + hiddenLayerSizeHigh + numberOfLayers=1 (ie lay=1) + trainNumberOfEpochsHigh
+y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 90.90]		#RPIANN
+#y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN hiddenLayerSizeHigh=False + numberOfSublayers=2 with full backprop
+#y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN hiddenLayerSizeHigh=False + numberOfSublayers=2
+#y2_values = [0.0, 0.0, 60.83, 70.18, 88.31, 43.75, 98.05, 58.24, 88.35, 85.26, , , 86.35]		#RPIANN inputProjectionActivationFunction
+#y2_values = [0.0, 0.0, 61.38, 69.88, 86.50, 61.25, 72.66, 58.17, 85.92, 83.68, 83.74, 64.22, 90.90]		#RPIANN numberOfLayers=1 (ie lay=1)
+#y2_values = [0.0, 0.0, 59.51, 69.75, 87.86, 56.87, 76.76, 59.83, 87.23, 85.24, 89.44, , 90.95]		#RPIANN numberOfLayers=1 (ie lay=1) + trainNumberOfEpochsHigh
+#y2_values = [0.0, 0.0, 60.51, 69.18, 82.41, 60.62, 95.12, 53.03, 89.35, 80.39, , , ]		#RPIANN useClassificationLayerLoss=False + useRecursiveLayers=False
+#y2_values = [0.0, 0.0, 61,95, 70.00, 83.58, 49.37, 92.97, 51.88, 88.37, 80.32, , ,]		#RPIANN useClassificationLayerLoss=False + useRecursiveLayers=False + numberOfLayers=1 (ie lay=1)
+
 
 #covertype with trainNumberOfEpochsHigh=False
 

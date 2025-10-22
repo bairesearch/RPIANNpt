@@ -367,7 +367,6 @@ if(useImageDataset):
 			assert numberOfConvlayers%2 == 0
 		else:
 			CNNconvergeEveryEvenLayer = False
-	hiddenLayerSize = 2048	#1024
 	disableDatasetCache = False
 	imageDatasetAugment = True
 	if(imageDatasetAugment):
@@ -385,8 +384,8 @@ if(trainNumberOfEpochsHigh):
 	trainNumberOfEpochs = trainNumberOfEpochs*4
 if(hiddenLayerSizeHigh):
 	hiddenLayerSize = hiddenLayerSize*4
-
-#numberOfLayers = 1  #temp testing without recursive layers
+if(numberOfLayersLow):
+	numberOfLayers = 1
 
 if(debugSmallBatchSize):
 	batchSize = 10
