@@ -49,8 +49,19 @@ def createModel(dataset):
 		print("\t inputLayerSize (numberOfFeatures) = ", numberOfFeatures)
 		print("\t outputLayerSize (numberOfClasses) = ", numberOfClasses)
 		print("\t ---")
+		print("\t trainLocal = ", trainLocal)
+		print("\t useClassificationLayerLoss = ", useClassificationLayerLoss)
+		print("\t ---")
 		print("\t useRecursiveLayers = ", useRecursiveLayers)
+		print("\t layersFeedConcatInput = ", layersFeedConcatInput)
+		print("\t layersFeedResidualInput = ", layersFeedResidualInput)
+		print("\t useRecursiveLayers = ", useRecursiveLayers)
+		print("\t ---")
 		print("\t numberOfSublayers = ", numberOfSublayers)
+		if(numberOfSublayers > 1):
+			print("\t subLayerHiddenDimMultiplier = ", subLayerHiddenDimMultiplier)
+			print("\t subLayerFirstNotTrained = ", subLayerFirstNotTrained)
+
 		
 	config = RPIANNpt_RPIANNmodel.RPIANNconfig(
 		batchSize = batchSize,

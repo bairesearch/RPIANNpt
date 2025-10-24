@@ -17,17 +17,25 @@ RPIANNpt globalDefs
 
 """
 
+#debug parameters:
 printRPIANNmodelProperties = True
 
+#backprop parameters:
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
-
-useRecursiveLayers = False	#orig: True
 useClassificationLayerLoss = False #orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
+
+#recursion parameters:
+useRecursiveLayers = True
+layersFeedConcatInput = True	#orig: True
+layersFeedResidualInput = True	#orig: True
+
 numberOfLayersLow = True	#orig: False	#use 1 FF layer
 
+#sublayer parameters:
 numberOfSublayers = 1	#default: 1
 if(numberOfSublayers > 1):
-	subLayerHiddenDimMultiplier = 2
+	subLayerHiddenDimMultiplier = 2	#default: 2
+	subLayerFirstNotTrained = True	#default: True	#orig: False	#first sublayer is untrained random projection (no multilayer backprop)
 
 #dataset parameters:
 useImageDataset = False 	#not currently supported	#use CIFAR-10 dataset with CNN
@@ -38,9 +46,11 @@ else:
 	useTabularDataset = True
 	useCNNlayers = False
 		
-#CNN parameters:
+#i/o projection parameters:
 inputProjectionActivationFunction = True
 targetProjectionActivationFunction = False
+
+#CNN parameters:
 if(useImageDataset):
 	hiddenLayerSize = 2048	#2048
 	if(useCNNlayers):
@@ -55,7 +65,7 @@ if(useTabularDataset):
 elif(useImageDataset):
 	datasetType = "useImageDataset"
 
-#training epoch parameters:
+#training/network scale parameters:
 trainNumberOfEpochsHigh = False	#use ~4x more epochs to train
 hiddenLayerSizeHigh = True	#use ~4x more hidden neurons (approx equalise number of parameters with ANN)	#large projection from input/output
 
