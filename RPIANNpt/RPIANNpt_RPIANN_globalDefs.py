@@ -22,13 +22,14 @@ printRPIANNmodelProperties = True
 
 #backprop parameters:
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
-useClassificationLayerLoss = False #orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
+useClassificationLayerLoss = False #default: False	#orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
 
 #recursion parameters:
-useRecursiveLayers = True
-layersFeedConcatInput = True	#orig: True
-layersFeedResidualInput = True	#orig: True
+useRecursiveLayers = False		#orig: True
+layersFeedConcatInput = False	#default: False	#orig: True
+layersFeedResidualInput = False	#default: False	#orig: True
 
+#FF parameters:
 numberOfLayersLow = True	#orig: False	#use 1 FF layer
 
 #sublayer parameters:
@@ -38,7 +39,7 @@ if(numberOfSublayers > 1):
 	subLayerFirstNotTrained = True	#default: True	#orig: False	#first sublayer is untrained random projection (no multilayer backprop)
 
 #dataset parameters:
-useImageDataset = False 	#not currently supported	#use CIFAR-10 dataset with CNN
+useImageDataset = True 	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
 	useCNNlayers = True

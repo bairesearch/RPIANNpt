@@ -37,13 +37,13 @@ python ANNpt_main.py
 
 ## RPIANN vs Backprop performance (classification layer loss)
 
-![RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementVsBackpropTestAccuracy-SMALL.png?raw=true)
+![RPIANNVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNVsBackpropTestAccuracy-SMALL.png?raw=true)
 
 RPIANNpt tests conducted with settings;
 ```
-useRecursiveLayers = True
+useRecursiveLayers = True [independent]
 useClassificationLayerLoss = True (uses backprop calculations from target layer loss)
-numberOfLayers = (lay+1)
+numberOfLayers = (lay+1) [independent]
 numberOfSublayers = 1 (sublayers per layer)
 hiddenLayerSizeHigh = True (units*4)
 inputProjectionActivationFunction = False
@@ -54,14 +54,16 @@ useImageDataset = False
 
 ![RPIANNtestAccuracyImageDataset-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNtestAccuracyImageDataset-SMALL.png?raw=true)
 
-RPIANNpt tests conducted with settings;
+RPIANNpt tests conducted with default settings;
 ```
-useRecursiveLayers = False
 useClassificationLayerLoss = False (uses embedding layer loss calculated by reverse projection from target layer)
-numberOfLayers = 1
 numberOfSublayers = 1 (sublayers per layer)
+subLayerFirstNotTrained = True
 hiddenLayerSizeHigh = True
 inputProjectionActivationFunction = True
+outputProjectionActivationFunction = False
+layersFeedConcatInput = False
+layersFeedResidualInput = False
 useImageDataset = True
 useCNNlayers = True
 numberOfConvlayers = 1
