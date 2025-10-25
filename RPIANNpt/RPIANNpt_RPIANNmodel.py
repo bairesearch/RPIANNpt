@@ -42,9 +42,12 @@ class RPIANNconfig():
 		self.inputImageShape = inputImageShape
 
 class _ActionLayerBase(nn.Module):
-	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
+	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__()
-		activation_module = nn.ReLU() if use_activation else nn.Identity()
+		if(use_activation):
+			activation_module = nn.ReLU()
+		else:
+			activation_module = nn.Identity()
 		if(numberOfSublayers == 1):
 			hidden_dim = embedding_dim
 			if(layersFeedConcatInput):
@@ -69,7 +72,8 @@ class _ActionLayerBase(nn.Module):
 			self.action = nn.Sequential(
 				first_layer,
 				nn.ReLU(),
-				nn.Linear(hidden_dim, embedding_dim)
+				nn.Linear(hidden_dim, embedding_dim),
+				activation_module
 			)
 		else:
 			printe("invalid number numberOfSublayers")
@@ -84,19 +88,20 @@ class _ActionLayerBase(nn.Module):
 	def forward(self, y_hat, x_embed):
 		if(layersFeedConcatInput):
 			combined = pt.cat([x_embed, y_hat], dim=-1)
-			update = pt.tanh(self.action(combined)) * self.action_scale	# Limit the magnitude of the proposed update so the recursion remains stable
 		else:
 			combined = y_hat
-			raw_update = self.action(combined)
-			update = pt.tanh(raw_update) * self.action_scale	# Limit the magnitude of the proposed update so the recursion remains stable
+		raw_update = self.action(combined)
+		if(hiddenActivationFunctionTanh):
+			raw_update = pt.tanh(raw_update)
+		update = raw_update * self.action_scale	# Limit the magnitude of the proposed update so the recursion remains stable
 		return update
 
 class RecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
+	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__(embedding_dim, action_scale, use_activation)
 
 class NonRecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale=0.25, use_activation=True):
+	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__(embedding_dim, action_scale, use_activation)
 
 class RPIANNmodel(nn.Module):
@@ -111,29 +116,46 @@ class RPIANNmodel(nn.Module):
 
 		self.using_image_projection = useCNNlayers
 		self.use_recursive_layers = useRecursiveLayers
-		self.use_target_projection_activation = targetProjectionActivationFunction
+		self.use_hidden_activation = hiddenActivationFunction
+
 		if(self.using_image_projection):
-			self.input_projection = self._build_image_projection(config)
-			for param in self.input_projection.parameters():
+			self.image_projection = self._build_image_projection(config)
+			for param in self.image_projection.parameters():
 				param.requires_grad_(False)
-		else:
-			self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
-			self._initialise_random_linear(self.input_projection)
-			self.input_projection.weight.requires_grad_(False)
-		self.use_input_projection_activation = inputProjectionActivationFunction
+
+		self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
+		self._initialise_random_linear(self.input_projection)
+		self.input_projection.weight.requires_grad_(False)
 
 		self.target_projection = nn.Linear(config.outputLayerSize, self.embedding_dim, bias=False)
 		self._initialise_random_linear(self.target_projection)
 		self.target_projection.weight.requires_grad_(False)
-		self.target_projection_activation = nn.ReLU() if self.use_target_projection_activation else nn.Identity()
+
+		if(inputProjectionActivationFunction):
+			self.input_projection_activation = nn.ReLU()
+		else:
+			self.input_projection_activation = nn.Identity()
+		if(inputProjectionActivationFunctionTanh):
+			self.input_projection_activation_tanh = nn.Tanh()
+		else:
+			self.input_projection_activation_tanh = nn.Identity()
+
+		if(targetProjectionActivationFunction):
+			self.target_projection_activation = nn.ReLU()
+		else:
+			self.target_projection_activation = nn.Identity()
+		if(targetProjectionActivationFunctionTanh):
+			self.target_projection_activation_tanh = nn.Tanh()
+		else:
+			self.target_projection_activation_tanh = nn.Identity()
 
 		self.initial_predictor = nn.Linear(self.embedding_dim, self.embedding_dim)
 		if(self.use_recursive_layers):
-			self.recursive_layer = RecursiveActionLayer(self.embedding_dim, use_activation=self.use_target_projection_activation)
+			self.recursive_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation)
 			self.nonrecursive_layers = None
 		else:
 			self.recursive_layer = None
-			self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim, use_activation=self.use_target_projection_activation) for _ in range(self.recursion_steps)])
+			self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation) for _ in range(self.recursion_steps)])
 		if(useClassificationLayerLoss):
 			self.embedding_loss_weight = 0.1
 
@@ -171,7 +193,7 @@ class RPIANNmodel(nn.Module):
 		if(out_channels <= 0):
 			raise ValueError("Calculated CNN output channels must be positive.")
 
-		use_activation = inputProjectionActivationFunction
+		use_activation = imageProjectionActivationFunction
 
 		layers = []
 		in_channels = input_channels
@@ -222,126 +244,101 @@ class RPIANNmodel(nn.Module):
 			return total_loss, accuracy
 
 	def _train_recursive_locally(self, x_embed, target_embedding, y, optim):
-	
-		if(layersFeedConcatInput):
-			y_hat_state = self._local_step(None, x_embed, target_embedding, y, optim, index=0, initialForward=True)
-		else:
-			y_hat_state = x_embed
-
+		
+		y_hat_state = x_embed
 		if(self.use_recursive_layers):
 			for step in range(self.recursion_steps):
-				base_state = y_hat_state
-				y_hat_state = self._local_step(base_state, x_embed, target_embedding, y, optim, index=step+1)
+				update = self._local_step(y_hat_state, x_embed, target_embedding, y, optim, index=step)
+				y_hat_state = self._applyResidual(y_hat_state, update)
 		else:
 			for step, layer in enumerate(self.nonrecursive_layers):
-				base_state = y_hat_state
-				y_hat_state = self._local_step(base_state, x_embed, target_embedding, y, optim, index=step+1, layer_ref=layer)
+				update = self._local_step(y_hat_state, x_embed, target_embedding, y, optim, index=step, layer_ref=layer)
+				y_hat_state = self._applyResidual(y_hat_state, update)
 
 		return y_hat_state
 
-	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None, initialForward=False):
+	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
 		opt = self._resolve_local_optimizer(optim, index)
-		if opt is not None:
-			y_hat = self._local_step_forward(base, x_embed, layer_ref, initialForward)
-			total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y)
-			opt.zero_grad()
-			total_loss.backward()
-			opt.step()
-		with pt.no_grad():
-			y_hat = self._local_step_forward(base, x_embed, layer_ref, initialForward)
-		return y_hat.detach()
-
-	def _resolve_local_optimizer(self, optim, index=0):
-		if(optim is None):
-			return None
-		if(isinstance(optim, list)):
-			if(len(optim) == 0):
-				return None
-			selected = optim[min(index, len(optim)-1)]
-			if(isinstance(selected, list)):
-				if(len(selected) == 0):
-					return None
-				return selected[0]
-			return selected
-		return optim
-	
-	def _local_step_forward(self, base, x_embed, layer_ref=None, initialForward=False):
-		if(initialForward):
-			y_hat = self._iterate_forward_initial(x_embed)
-		else:	
-			if(self.use_recursive_layers):
-				y_hat = self._iterate_forward_recursive(base, x_embed)
-			else:
-				y_hat = self._iterate_forward_nonrecursive(base, x_embed, layer_ref)
+		y_hat = self._local_step_forward(base, x_embed, layer_ref)
+		total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y)
+		opt.zero_grad()
+		total_loss.backward()
+		opt.step()
+		y_hat = y_hat.detach()
 		return y_hat
+
+	def _resolve_local_optimizer(self, optim, index):	
+		return optim[index]
 	
-	def _iterate_forward_initial(self, x_embed):
-		return pt.tanh(self.initial_predictor(x_embed))
+	def _local_step_forward(self, base, x_embed, layer_ref=None):
+		if(self.use_recursive_layers):
+			y_hat = self._iterate_forward_recursive(base, x_embed)
+		else:
+			y_hat = self._iterate_forward_nonrecursive(base, x_embed, layer_ref)
+		return y_hat
 	
 	def _iterate_forward_recursive(self, base, x_embed):
 		out = self.recursive_layer(base, x_embed)
-		if(layersFeedResidualInput):
-			out = base + out
 		return out
 	
 	def _iterate_forward_nonrecursive(self, base, x_embed, layer_ref):
 		out = layer_ref(base, x_embed)
-		if(layersFeedResidualInput):
-			out = base + out
 		return out
 	
 	def iterate_prediction(self, x_embed):
-		if(layersFeedConcatInput):
-			y_hat = self.initialise_prediction(x_embed)
-		else:
-			y_hat = x_embed
+		y_hat = x_embed
 		if(self.use_recursive_layers):
 			for _ in range(self.recursion_steps):
 				update = self.recursive_layer(y_hat, x_embed)
-				if(layersFeedResidualInput):
-					y_hat = y_hat + update
-				else:
-					y_hat = update
+				y_hat = self._applyResidual(y_hat, update)
 		else:
 			for layer in self.nonrecursive_layers:
 				update = layer(y_hat, x_embed)
-				if(layersFeedResidualInput):
-					y_hat = y_hat + update
-				else:
-					y_hat = update
+				y_hat = self._applyResidual(y_hat, update)
 		return y_hat
 	
+	def _applyResidual(self, orig, update):
+		if(layersFeedResidualInput):
+			return orig + update
+		else:
+			return update
+			
 	def _compute_total_loss(self, y_hat, target_embedding, y):
-		activated_y_hat = self.target_projection_activation(y_hat)
-		logits = self.project_to_classes(activated_y_hat)
+		logits = self.project_to_classes(y_hat)
 		classification_loss = self.lossFunctionFinal(logits, y)
-		embedding_alignment_loss = F.mse_loss(activated_y_hat, target_embedding)
+		embedding_alignment_loss = F.mse_loss(y_hat, target_embedding)
 		if(useClassificationLayerLoss):
 			total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
 		else:
 			total_loss = embedding_alignment_loss
-		return total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat
+		return total_loss, logits, classification_loss, embedding_alignment_loss, y_hat
 
 	def project_to_classes(self, y_hat):
 		# Using the frozen target projection weights as a random classifier head.
 		return pt.matmul(y_hat, self.target_projection.weight)
 	
 	def encode_input(self, x):
-		if(self.using_image_projection):
-			return self.input_projection(x)
 		if(useImageDataset):
-			batch_size = x.shape[0]
-			x = x.reshape(batch_size, -1)
-		projected = self.input_projection(x)
-		if(self.use_input_projection_activation):
-			projected = F.relu(projected)
+			if(self.using_image_projection):
+				projected = self.image_projection(x)
+				projected = self.input_projection_activation_tanh(projected)	#from self.encode_inputs
+			else:
+				batch_size = x.shape[0]
+				x = x.reshape(batch_size, -1)
+				projected = self.encode_inputs(x)
+		else:
+			projected = self.encode_inputs(x)
 		return projected
 
 	def encode_targets(self, y):
 		y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
 		target_embedding = self.target_projection(y_one_hot)
 		target_embedding = self.target_projection_activation(target_embedding)
+		target_embedding = self.target_projection_activation_tanh(target_embedding)
 		return target_embedding
-
-	def initialise_prediction(self, x_embed):
-		return pt.tanh(self.initial_predictor(x_embed))
+	
+	def encode_inputs(self, x):
+		input_embedding = self.input_projection(x)
+		input_embedding = self.input_projection_activation(input_embedding)
+		input_embedding = self.input_projection_activation_tanh(input_embedding)
+		return input_embedding

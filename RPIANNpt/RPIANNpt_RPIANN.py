@@ -44,7 +44,6 @@ def createModel(dataset):
 		print("\t ---")
 		print("\t batchSize = ", batchSize)
 		print("\t numberOfLayers = ", numberOfLayers)
-		#print("\t numberOfConvlayers = ", numberOfConvlayers)
 		print("\t hiddenLayerSize = ", hiddenLayerSize)
 		print("\t inputLayerSize (numberOfFeatures) = ", numberOfFeatures)
 		print("\t outputLayerSize (numberOfClasses) = ", numberOfClasses)
@@ -55,14 +54,28 @@ def createModel(dataset):
 		print("\t useRecursiveLayers = ", useRecursiveLayers)
 		print("\t layersFeedConcatInput = ", layersFeedConcatInput)
 		print("\t layersFeedResidualInput = ", layersFeedResidualInput)
-		print("\t useRecursiveLayers = ", useRecursiveLayers)
+		print("\t layerScale = ", layerScale)
 		print("\t ---")
 		print("\t numberOfSublayers = ", numberOfSublayers)
 		if(numberOfSublayers > 1):
 			print("\t subLayerHiddenDimMultiplier = ", subLayerHiddenDimMultiplier)
 			print("\t subLayerFirstNotTrained = ", subLayerFirstNotTrained)
+		print("\t ---")
+		print("\t inputProjectionActivationFunction = ", inputProjectionActivationFunction)
+		print("\t inputProjectionActivationFunctionTanh = ", inputProjectionActivationFunctionTanh)
+		print("\t hiddenActivationFunction = ", hiddenActivationFunction)
+		print("\t hiddenActivationFunctionTanh = ", hiddenActivationFunctionTanh)
+		print("\t targetProjectionActivationFunction = ", targetProjectionActivationFunction)
+		print("\t targetProjectionActivationFunctionTanh = ", targetProjectionActivationFunctionTanh)
+		print("\t ---")
+		print("\t useImageDataset = ", useImageDataset)
+		if(numberOfSublayers > 1):
+			print("\t useCNNlayers = ", useCNNlayers)
+			print("\t numberOfConvlayers = ", numberOfConvlayers)
+			print("\t imageProjectionActivationFunction = ", imageProjectionActivationFunction)
+		#print("\t numberOfConvlayers = ", numberOfConvlayers)
 
-		
+
 	config = RPIANNpt_RPIANNmodel.RPIANNconfig(
 		batchSize = batchSize,
 		numberOfLayers = numberOfLayers,

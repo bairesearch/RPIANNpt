@@ -8,24 +8,37 @@ def subset(arr, subsetMask):
 graphedDatasets = [False, False, True, True, True, True, True, True, True, True, True, True, True] 	#tested datasets
 
 y1_values = [95.82, 91.59, 62.86, 70.17, 90.15, 58.13, 91.41, 61.23, 85.54, 85.77, 92.14, 66.85, 95.45]		#ANN full backprop (from AEANNpt codebase)
-y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 90.90]		#RPIANN useClassificationLayerLoss=True + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
+y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 90.90]		#RPIANN useClassificationLayerLoss=True + inputProjectionActivationFunction=False
 
-#y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True with full backprop
-#y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 60.83, 70.18, 88.31, 43.75, 98.05, 58.24, 88.35, 85.26, , , ]		#RPIANN useClassificationLayerLoss=True + inputProjectionActivationFunction=True + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 61.38, 69.88, 86.50, 61.25, 72.66, 58.17, 85.92, 83.68, 83.74, 64.22, 90.90]		#RPIANN useClassificationLayerLoss=True + numberOfLayers=1 (ie lay=1) + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 59.51, 69.75, 87.86, 56.87, 76.76, 59.83, 87.23, 85.24, 89.44, , ]		#RPIANN useClassificationLayerLoss=True + numberOfLayers=1 (ie lay=1) + trainNumberOfEpochsHigh + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 60.51, 69.18, 82.41, 60.62, 95.12, 53.03, 89.35, 80.39, , , ]		#RPIANN useRecursiveLayers=False + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 61,95, 70.00, 83.58, 49.37, 92.97, 51.88, 88.37, 80.32, , ,]		#RPIANN useRecursiveLayers=False + numberOfLayers=1 (ie lay=1) + inputProjectionActivationFunction=False+outputProjectionActivationFunction=True
-#y2_values = [0.0, 0.0, 62.19, 69.75, 88.23, 59.38, 94.92, 59.65, 88.19, 83.74, , , ]		#RPIANN useRecursiveLayers=False + numberOfLayers=1 (ie lay=1) 
-#y2_values = [0.0, 0.0, 61.86, 70.17, 88.77,51.25, 89.06, 59.24, 88.73, 84.29, , ,]		#RPIANN numberOfSublayers=2 + numberOfLayers=1 (ie lay=1) 
-#y2_values = [0.0, 0.0, 60.08, 69.60, 88.24, 45.00, 78.52, 54.67, 88.42, 78.64, , ,]		#RPIANN numberOfSublayers=2 
-#y2_values = [0.0, 0.0, 52.15, 70.02, 86.54, 66.25, 96.88, 45.88, 89.15, 84.38, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False
-#y2_values = [0.0, 0.0, 60.32, 70.12, 86.56, 56.87, 96.09, 58.09, 89.13, 84.75, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + useRecursiveLayers=False
-#y2_values = [0.0, 0.0, 61.09, 69.84, 86.20, 40.62, 83.98, 59.60, 88.88, 83.35, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + numberOfLayers=1 (ie lay=1)
-#y2_values = [0.0, 0.0, 60.68, 70.12, 86.09, 56.25, 81.64, 59.56, 88.86, 85.05, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True
-#y2_values = [0.0, 0.0, 62.12, 70.05, 87.23, 62.50, 91.60, 59.66, 89.04, 83.78, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True + useRecursiveLayers=False
-#y2_values = [0.0, 0.0, 60.56, 69.88, 85.86, 53.75, 76.37, 59.79, 88.37, 83.78, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True + numberOfLayers=1 (ie lay=1)
+#y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False  with full backprop
+#y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False 
+#y2_values = [0.0, 0.0, 60.83, 70.18, 88.31, 43.75, 98.05, 58.24, 88.35, 85.26, , , ]		#RPIANN useClassificationLayerLoss=True + inputProjectionActivationFunction=True 
+#y2_values = [0.0, 0.0, 61.38, 69.88, 86.50, 61.25, 72.66, 58.17, 85.92, 83.68, 83.74, 64.22, 90.90]		#RPIANN useClassificationLayerLoss=True + numberOfLayers=1 (ie lay=1) 
+#y2_values = [0.0, 0.0, 59.51, 69.75, 87.86, 56.87, 76.76, 59.83, 87.23, 85.24, 89.44, , ]		#RPIANN useClassificationLayerLoss=True + numberOfLayers=1 (ie lay=1) + trainNumberOfEpochsHigh 
+#y2_values = [0.0, 0.0, 60.51, 69.18, 82.41, 60.62, 95.12, 53.03, 89.35, 80.39, , , ]		#RPIANN useRecursiveLayers=False 
+#y2_values = [0.0, 0.0, 61,95, 70.00, 83.58, 49.37, 92.97, 51.88, 88.37, 80.32, , ,]		#RPIANN useRecursiveLayers=False + numberOfLayers=1 (ie lay=1) 
+#y2_values = [0.0, 0.0, 62.19, 69.75, 88.23, 59.38, 94.92, 59.65, 88.19, 83.74, , , ]		#RPIANN useRecursiveLayers=False + numberOfLayers=1 (ie lay=1) + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 61.86, 70.17, 88.77,51.25, 89.06, 59.24, 88.73, 84.29, , ,]		#RPIANN numberOfSublayers=2 + numberOfLayers=1 (ie lay=1) + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 60.08, 69.60, 88.24, 45.00, 78.52, 54.67, 88.42, 78.64, , ,]		#RPIANN numberOfSublayers=2 + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 52.15, 70.02, 86.54, 66.25, 96.88, 45.88, 89.15, 84.38, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 60.32, 70.12, 86.56, 56.87, 96.09, 58.09, 89.13, 84.75, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + useRecursiveLayers=False + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 61.09, 69.84, 86.20, 40.62, 83.98, 59.60, 88.88, 83.35, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + numberOfLayers=1 (ie lay=1) + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 60.68, 70.12, 86.09, 56.25, 81.64, 59.56, 88.86, 85.05, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 62.12, 70.05, 87.23, 62.50, 91.60, 59.66, 89.04, 83.78, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True + useRecursiveLayers=False + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 60.56, 69.88, 85.86, 53.75, 76.37, 59.79, 88.37, 83.78, , , ]		#RPIANN layersFeedConcatInput=False+layersFeedResidualInput=True + numberOfLayers=1 (ie lay=1) + targetProjectionActivationFunction=False
+#y2_values = [0.0, 0.0, 59.70, 70.18, 87.97, 64.38, 100.00, 54.12, 89.20, 84.40, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0
+#y2_values = [0.0, 0.0, 58.10, 70.19, 87.39, 51.88, 69.73, 54.12, 89.00, 84.38, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + useRecursiveLayers=False
+#y2_values = [0.0, 0.0, 59.03, 70.22, 87.45, 55.00, 96.29, 54.13, 88.73, 83.22, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + numberOfLayers=1 (ie lay=1)
+#y2_values = [0.0, 0.0, 57.42, 70.18, 87.15, 51.88, 89.26, 54.12, 88.55, 83.10, , ,]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunction=False+targetProjectionActivationFunctionTanh=True
+#y2_values = [0.0, 0.0, , , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunction=False+targetProjectionActivationFunctionTanh=True + useRecursiveLayers=False
+#y2_values = [0.0, 0.0, , , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunction=False+targetProjectionActivationFunctionTanh=True + numberOfLayers=1 (ie lay=1) 
+#y2_values = [0.0, 0.0, 55.89, 70.23, 88.30, 48.75, 82.62, 54.12, 88.68, 84.70, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunctionTanh=True
+#y2_values = [0.0, 0.0, 59.62, 69.73, 88.05, 61.87, 96.68, 54.12, 88.91, 84.19, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunctionTanh=True + useRecursiveLayers=False
+#y2_values = [0.0, 0.0, 59.10, 70.19, 87.63, 57.50, 86.91, 54.12, 88.73, 84.00, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + targetProjectionActivationFunctionTanh=True + numberOfLayers=1 (ie lay=1) 
+#y2_values = [0.0, 0.0, 51.01, 70.18, 87.09, 53.75, 78.52, 54.13, 89.11, 84.40, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True
+#y2_values = [0.0, 0.0, 58.29, 70.15, 88.47, 54.37, 95.12, 54.12, 89.15, 75.04, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True + useRecursiveLayers=False
+#y2_values = [0.0, 0.0, 52.54, 70.19, 87.71, 54.37, 94.73, 54.13, 89.26, 80.82, , , ]·  ·   #RPIANN layersFeedConcatInput=False+layersFeedResidualInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True + numberOfLayers=1 (ie lay=1) 
+
 
 group_labels = ["CIFAR-10 Resnet-18", "CIFAR-10 Conv-9", "tabular-benchmark", "blog-feedback", "titanic", "red-wine", "breast-cancer-wisconsin", "diabetes-readmission", "banking-marketing", "adult_income_dataset", "covertype", "higgs", "new-thyroid"]
 

@@ -19,13 +19,17 @@ group_labels = ["useClassificationLayerLoss", "useEmbeddingLayerLoss", "numberOf
 	
 # Optional long descriptions shown in the right-side key
 group_descriptions = [
-	"convlay=1 mlplay=1 classLayLoss outProjAct concatInp+residInp",
-	"convlay=1 mlplay=1 outProjAct concatInp+residInp",
-	"convlay=1 mlplay=9 sublay=2 reclay concatInp+residInp",
-	"convlay=1 mlplay=1 sublay=2 concatInp+residInp",
-	"convlay=1 mlplay=9 reclay",
-	"convlay=1 mlplay=9",
-	"convlay=1 mlplay=1",
+	"convlay=1 mlplay=1 classLayLoss concatInp+residInp",
+	"convlay=1 mlplay=1 concatInp+residInp",
+	"convlay=1 mlplay=9 noOutProjAct sublay=2 reclay concatInp+residInp",
+	"convlay=1 mlplay=1 noOutProjAct sublay=2 concatInp+residInp",
+	"convlay=1 mlplay=9 noOutProjAct reclay",
+	"convlay=1 mlplay=9 noOutProjAct",
+	"convlay=1 mlplay=1 noOutProjAct",
+	#"convlay=1 mlplay=9 inp+outProjActTanh reclay",
+	#"convlay=1 mlplay=9 inp+outProjActTanh",
+	#"convlay=1 mlplay=1 inp+outProjActTanh",
+	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp reclay",
 ]
 
 y_values_lists = [
@@ -36,6 +40,10 @@ y_values_lists = [
 	[0.1000, 0.4004, 0.4908],
 	[0.2815, 0.4011, 0.4672],
 	[0.3029, 0.4149, 0.4932],
+	#[0.2031, 0.3962, 0.4873],
+	#[, ,],
+	#[0.2430, 0.4268, 0.4710],
+	#[0.2975, 0.4399, 0.5136],
 ]
 
 # Sanity checks
