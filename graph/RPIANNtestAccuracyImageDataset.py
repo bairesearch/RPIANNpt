@@ -30,6 +30,8 @@ group_descriptions = [
 	#"convlay=1 mlplay=9 inp+outProjActTanh",
 	#"convlay=1 mlplay=1 inp+outProjActTanh",
 	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp reclay",
+	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp",
+	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp",
 ]
 
 y_values_lists = [
@@ -41,9 +43,11 @@ y_values_lists = [
 	[0.2815, 0.4011, 0.4672],
 	[0.3029, 0.4149, 0.4932],
 	#[0.2031, 0.3962, 0.4873],
-	#[, ,],
+	#[0.1961, 0.4527, 0.3554],
 	#[0.2430, 0.4268, 0.4710],
 	#[0.2975, 0.4399, 0.5136],
+	#[0.2794, 0.4324, 0.5028],
+	#[0.3041, 0.3836, 0.3781],
 ]
 
 # Sanity checks

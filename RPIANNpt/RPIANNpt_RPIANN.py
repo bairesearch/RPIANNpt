@@ -69,7 +69,7 @@ def createModel(dataset):
 		print("\t targetProjectionActivationFunctionTanh = ", targetProjectionActivationFunctionTanh)
 		print("\t ---")
 		print("\t useImageDataset = ", useImageDataset)
-		if(numberOfSublayers > 1):
+		if(useImageDataset):
 			print("\t useCNNlayers = ", useCNNlayers)
 			print("\t numberOfConvlayers = ", numberOfConvlayers)
 			print("\t imageProjectionActivationFunction = ", imageProjectionActivationFunction)
