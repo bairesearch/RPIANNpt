@@ -60,6 +60,9 @@ def createModel(dataset):
 		if(numberOfSublayers > 1):
 			print("\t subLayerHiddenDimMultiplier = ", subLayerHiddenDimMultiplier)
 			print("\t subLayerFirstNotTrained = ", subLayerFirstNotTrained)
+			print("\t subLayerFirstMixXembedYhatStreamsSeparately = ", subLayerFirstMixXembedYhatStreamsSeparately)
+			print("\t subLayerFirstSparse = ", subLayerFirstSparse)
+			print("\t subLayerFirstSparsityLevel = ", subLayerFirstSparsityLevel)
 		print("\t ---")
 		print("\t inputProjectionActivationFunction = ", inputProjectionActivationFunction)
 		print("\t inputProjectionActivationFunctionTanh = ", inputProjectionActivationFunctionTanh)

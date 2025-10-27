@@ -381,7 +381,7 @@ if(useImageDataset):
 	dropoutProb = 0.5 	#default: 0.5	#orig: 0.3
 
 if(trainNumberOfEpochsHigh):
-	trainNumberOfEpochs = trainNumberOfEpochs*4
+	trainNumberOfEpochs = trainNumberOfEpochs*9	#orig*4
 if(hiddenLayerSizeHigh):
 	hiddenLayerSize = hiddenLayerSize*4
 if(numberOfLayersLow):
