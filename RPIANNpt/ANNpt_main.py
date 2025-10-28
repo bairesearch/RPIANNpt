@@ -167,22 +167,22 @@ def processDataset(trainOrTest, dataset, model):
 					loader = ANNpt_data.createDataLoaderImage(dataset)	#required to reset dataloader and still support tqdm modification
 				loop = tqdm(loader, leave=True)
 				for batchIndex, batch in enumerate(loop):
+					for b in range(trainRepeatBatchX):
+						if(trainOrTest):
+							loss, accuracy = trainBatch(batchIndex, batch, model, optim, l)
+						else:
+							loss, accuracy = testBatch(batchIndex, batch, model, l)
 
-					if(trainOrTest):
-						loss, accuracy = trainBatch(batchIndex, batch, model, optim, l)
-					else:
-						loss, accuracy = testBatch(batchIndex, batch, model, l)
-
-					if(l == maxLayer-1):
-						if(not trainOrTest):
-							totalAccuracy = totalAccuracy + accuracy
-							totalAccuracyCount += 1
-							
-					if(printAccuracyRunningAverage):
-						(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
-					
-					loop.set_description(f'Epoch {epoch}')
-					loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
+						if(l == maxLayer-1):
+							if(not trainOrTest):
+								totalAccuracy = totalAccuracy + accuracy
+								totalAccuracyCount += 1
+								
+						if(printAccuracyRunningAverage):
+							(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
+						
+						loop.set_description(f'Epoch {epoch}')
+						loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
 		
 			if(not trainOrTest):
 				averageAccuracy = totalAccuracy/totalAccuracyCount

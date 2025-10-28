@@ -25,7 +25,7 @@ trainLocal = True	#default: True #disable for debug/benchmark against standard f
 useClassificationLayerLoss = False #default: False	#orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
 
 #recursion parameters:
-useRecursiveLayers = True		#orig: True
+useRecursiveLayers = True		#default: True	#orig: True
 layersFeedConcatInput = True	#default: False	#orig: True
 layersFeedResidualInput = False	#default: False	#orig: True
 layerScale = 0.25	#default: 0.25	#orig: 0.25	#could be made dependent on layersFeedConcatInput, layersFeedResidualInput, hiddenActivationFunctionTanh etc
@@ -34,7 +34,7 @@ if(layersFeedConcatInput):
 	initialiseYhatZero = True	#default: True	#orig: False
 
 #FF parameters:
-numberOfLayersLow = False	#orig: False	#use 1 FF layer
+numberOfLayersLow = False	#default: False	#orig: False	#use 1 FF layer
 
 #sublayer parameters:
 numberOfSublayers = 1	#default: 1
@@ -44,7 +44,7 @@ if(numberOfSublayers > 1):
 	subLayerHiddenDimMultiplier = 2	#default: 2
 	subLayerFirstNotTrained = True	#default: True	#orig: False	#first sublayer is untrained random projection (no multilayer backprop)
 	if(layersFeedConcatInput):
-		subLayerFirstMixXembedYhatStreamsSeparately = True	#orig: False
+		subLayerFirstMixXembedYhatStreamsSeparately = False	#orig: False
 	subLayerFirstSparse = False	#default: False	#orig: False	#initialise first sublayer weights with sparse connectivity when untrained	#incomplete
 	subLayerFirstSparsityLevel = 0.9	#fraction of first sublayer weights zeroed when subLayerFirstSparse=True (0.0-1.0)
 	
@@ -67,10 +67,10 @@ targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: 
 
 #CNN parameters:
 if(useImageDataset):
-	hiddenLayerSize = 2048	#2048
+	hiddenLayerSize = 2048	#default: 2048
 	if(useCNNlayers):
 		numberOfConvlayers = 1	#default: 1	#1 or 2 (untrained projection)
-		numberOfLayers = 9 #number FF layers (overridden by numberOfLayersLow)
+		numberOfLayers = 9 #number FF layers (overridden by numberOfLayersLow)	#default: 9
 		imageProjectionActivationFunction = True	#default: True	#orig: True	#relu
 	#	CNNmaxPool = False
 	#	CNNbatchNorm = False
@@ -81,8 +81,9 @@ elif(useImageDataset):
 	datasetType = "useImageDataset"
 
 #training/network scale parameters:
-trainNumberOfEpochsHigh = False	#use ~9x more epochs to train
-hiddenLayerSizeHigh = True	#use ~4x more hidden neurons (approx equalise number of parameters with ANN)	#large projection from input/output
+trainRepeatBatchX = 1	#default: 1	#trains each batch ~9x	#temp
+trainNumberOfEpochsHigh = False	#default: False	#use ~4x more epochs to train
+hiddenLayerSizeHigh = True	#default: True	#use ~4x more hidden neurons (approx equalise number of parameters with ANN)	#large projection from input/output
 
 #data storage parameters:
 workingDrive = '/large/source/ANNpython/RPIANNpt/'

@@ -352,7 +352,7 @@ if(useImageDataset):
 	datasetName = "CIFAR10"	#currently assume CIFAR-10 dataset	#expected test accuracy: ~91%
 	numberOfClasses = 10
 	warmupEpochs = 5 	#default: 5	#orig: 0
-	learningRate = 0.001	#default: 0.001 (or 0.01)	#orig: 0.005
+	learningRate = 0.001	#0.001	#default: 0.001 (or 0.01)	#orig: 0.005
 	momentum = 0.9     #default: 0.9	#orig: 0.0
 	weightDecay  = 5e-4    #default: 5e-4	#orig: 0.0
 	batchSize = 1024	#128	 #default: 128	#orig: 64
@@ -381,7 +381,7 @@ if(useImageDataset):
 	dropoutProb = 0.5 	#default: 0.5	#orig: 0.3
 
 if(trainNumberOfEpochsHigh):
-	trainNumberOfEpochs = trainNumberOfEpochs*9	#orig*4
+	trainNumberOfEpochs = trainNumberOfEpochs*4	#orig*4
 if(hiddenLayerSizeHigh):
 	hiddenLayerSize = hiddenLayerSize*4
 if(numberOfLayersLow):

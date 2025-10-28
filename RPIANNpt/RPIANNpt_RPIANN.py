@@ -55,6 +55,7 @@ def createModel(dataset):
 		print("\t layersFeedConcatInput = ", layersFeedConcatInput)
 		print("\t layersFeedResidualInput = ", layersFeedResidualInput)
 		print("\t layerScale = ", layerScale)
+		print("\t initialiseYhatZero = ", initialiseYhatZero)
 		print("\t ---")
 		print("\t numberOfSublayers = ", numberOfSublayers)
 		if(numberOfSublayers > 1):

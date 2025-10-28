@@ -44,7 +44,8 @@ group_descriptions = [
 	"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay",
 	"convlay=1 mlplay=1 inp+outProjActTanh concatInp",
 	
-	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp trainNumberOfEpochsHigh",
+	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero",
+	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero repeatTrainLoopX9",
 ]
 
 y_values_lists = [
@@ -61,19 +62,20 @@ y_values_lists = [
 	#[0.2430, 0.4268, 0.4710],
 	#[0.2975, 0.4399, 0.5136],
 	#[0.2794, 0.4324, 0.5028],
-	#[0.3041, 0.3836, 0.3781],	#replication @8192: 0.3969
+	#[0.3041, 0.3836, 0.3781],	#replication @8192h: 0.3969
 	
-	#[, , ],
-	#[, , ],
-	#[, , ],
-	#[, , ],
+	#[0.3132, 0.4535, ],
+	#[0.3533, 0.4531, ],
+	#[0.3497, 0.4690, 0.5262],
+	#[0.3362, 0.4597, ],
 	
-	[0.4079, 0.4224, 0.4711],
-	[0.4045, 0.4765, 0.5185],
-	[0.3110, 0.4590, 0.5306],
+	[0.4079, 0.4224, 0.4711],	#replication1 @8192h: 0.5062 #replication2 @8192h: 0.4955
+	[0.4045, 0.4765, 0.5185],	#replication1 @8192h: 0.5222
+	[0.3110, 0.4590, 0.5306],	#replication1 @8192h: 0.5031 #replication2 @8192h: 0.5351
 	[0.3298, 0.3616, 0.5038],
 	
-	#[, , ],
+	#[0.3088, 0.4285, 0.4939],
+	#[0.2416, 0.4317, 0.5208],
 ]
 
 # Sanity checks
