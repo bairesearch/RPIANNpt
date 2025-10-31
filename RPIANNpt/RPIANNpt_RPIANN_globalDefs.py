@@ -52,16 +52,21 @@ if(numberOfSublayers > 1):
 useImageDataset = False 	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
-	useCNNlayers = True
+	useRPICNN = False	#orig: False
+	if(useRPICNN):
+		useCNNlayers = True	#default: True	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+	else:
+		useCNNlayers = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
 else:
 	useTabularDataset = True
+	useRPICNN = False
 	useCNNlayers = False
 		
 #activation function parameters:
-inputProjectionActivationFunction = True	#default: True	#orig: False	#relu
-inputProjectionActivationFunctionTanh = True	#default: True	#orig: True	#tanh
-hiddenActivationFunction = inputProjectionActivationFunction	#default: True	#orig: True	#relu
-hiddenActivationFunctionTanh = inputProjectionActivationFunctionTanh	#default: True	#orig: True	#tanh
+inputProjectionActivationFunction = True	#default: True	#orig: False	#relu	#not necessary (removes 50% bits from input projection output), but keeps all layer inputs (x embed and y hat) in similar range (ie zero or positive)
+inputProjectionActivationFunctionTanh = True	#default: True	#orig: True	#tanh	#input should already be normalised from 0 to 1
+hiddenActivationFunction = True	#default: True	#orig: True	#relu
+hiddenActivationFunctionTanh = True	#default: True	#orig: True	#tanh
 targetProjectionActivationFunction = hiddenActivationFunction	#default: True	#orig: True	#relu
 targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: True	#orig: False	#tanh
 
@@ -69,11 +74,18 @@ targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: 
 if(useImageDataset):
 	hiddenLayerSize = 2048	#default: 2048
 	if(useCNNlayers):
-		numberOfConvlayers = 1	#default: 1	#1 or 2 (untrained projection)
+		numberOfConvlayers = 1	#default: 1	#1 or 2 (untrained CNN projection)
+		if(useRPICNN):
+			CNNprojectionStride = 1	#default: 1 (preserves spatial size) #stride for image projection pooling layers	#use stride 1 for RPICNN to use original image spatial dimensions
+		else:
+			CNNprojectionStride = 2	#default: 2	#stride for image projection pooling layers
+		imageProjectionActivationFunction = True	#default: True	#orig: True	#relu	#will effectively override inputProjectionActivationFunction=False
+	else:
+		CNNprojectionStride = 1	#effective CNN stride (no change from input pixel space)
+	if(useRPICNN):
+		numberOfLayers = 9 #number RPICNN layers (overridden by numberOfLayersLow)	#default: 9
+	else:
 		numberOfLayers = 9 #number FF layers (overridden by numberOfLayersLow)	#default: 9
-		imageProjectionActivationFunction = True	#default: True	#orig: True	#relu
-	#	CNNmaxPool = False
-	#	CNNbatchNorm = False
 
 if(useTabularDataset):
 	datasetType = "useTabularDataset"
@@ -83,7 +95,7 @@ elif(useImageDataset):
 #training/network scale parameters:
 trainRepeatBatchX = 1	#default: 1	#trains each batch ~9x	#temp
 trainNumberOfEpochsHigh = False	#default: False	#use ~4x more epochs to train
-hiddenLayerSizeHigh = True	#default: True	#use ~4x more hidden neurons (approx equalise number of parameters with ANN)	#large projection from input/output
+hiddenLayerSizeHigh = True	#default: True	#use ~4x more hidden neurons	#large projection from input/output
 
 #data storage parameters:
 workingDrive = '/large/source/ANNpython/RPIANNpt/'

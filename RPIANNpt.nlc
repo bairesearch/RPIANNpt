@@ -44,5 +44,21 @@ subLayerFirstSparse (Codex IDE GPT5Codex prompt):
 
 Please implement option subLayerFirstSparse=True (for case numberOfSublayers >1 and subLayerFirstNotTrained=True only). This initialises the all first sublayer weights to be sparsely connected rather than densly connected, while providing a parameter to set the level of this sparsity.
 
+---
+useRPICNN (Codex IDE GPT5Codex prompt):
 
+Please implement option useRPICNN=True (for case useImageDataset=True and useCNNlayers=True only); 
+- useRPICNN creates a standard CNN network but with conv and maxpool kernels with stride=1 (the cnn "pixel" space does not shrink or expand each layer), and applies an equal number of kernels per layer.
+- similar to the core RPIANN algorithm; when layersFeedConcatInput=True, each RPICNN kernel takes input from both the first x embedding layer and the output of the previous embedding layer.
+- similar to the core RPIANN algorithm; when useRecursiveLayers=True, each layer reuses its RPICNN kernels (they are not initialised separately for each layer).
 
+---
+useRPICNN (Codex IDE GPT5Codex prompt):
+
+There is no theoretical reason why the num channels for x_embed and y_hat are identical for an RPICNN architecture (for initialiseYhatZero=True).
+1. Please upgrade the useRPICNN code to support different number of channels for x_embed. 
+2. please replace _build_rpi_cnn_projection with _build_image_projection.
+3. please upgrade _build_image_projection to support configurable stride values (ie stride 1 or stride 2).
+4. please add bool option useRPIANNimageProjection=False, and set it to False by default. In this case x_embed will have 3 channels (corresponding to the CIFAR image channels).
+
+Please proceed with implementation, but also inform me of any algorithmic issues you encounter when thinking about the new implementation.

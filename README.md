@@ -33,7 +33,7 @@ python ANNpt_main.py
 
 ## Recursive Prediction Improvement
 
-![RecursivePredictionImprovementImplementation1a.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RecursivePredictionImprovementImplementation1a.png?raw=true)
+![RPIANNImplementation1a.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNImplementation1a.png?raw=true)
 
 ## RPIANN vs Backprop performance (classification layer loss)
 
