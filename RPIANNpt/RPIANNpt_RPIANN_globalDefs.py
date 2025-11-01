@@ -55,11 +55,16 @@ if(useImageDataset):
 	useRPICNN = False	#orig: False	#recursive CNN layers
 	if(useRPICNN):
 		RPICNNuniqueWeightsPerPixel = True	#default: True	#orig: False	#each pixel of the RPICNN action layer has its own unique CNN kernel weights
+		if(RPICNNuniqueWeightsPerPixel):
+			RPICNNpool = False	#default: False
+		else:
+			RPICNNpool = True	#default: True
 		useCNNlayersInputProjection = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
 		useCNNlayersTargetProjection = False	#orig: False	#required to retain target image space 
-		targetProjectionExemplarImage = useCNNlayersTargetProjection	#orig: False	#required to retain target image space
+		targetProjectionExemplarImage = useCNNlayersTargetProjection	#default: useCNNlayersTargetProjection	#orig: False	#required to retain target image space
 		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 	else:
+		RPICNNuniqueWeightsPerPixel = False
 		useCNNlayersInputProjection = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
 		useCNNlayersTargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
 		targetProjectionExemplarImage = useCNNlayersTargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False

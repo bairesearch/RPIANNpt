@@ -102,7 +102,10 @@ class _CNNActionLayerBase(nn.Module):
 		self.conv_padding = 1
 
 		self.conv_layers = nn.ModuleList()
-		self.pool_layers = nn.ModuleList()
+		if(RPICNNpool):
+			self.pool_layers = nn.ModuleList()
+		else:
+			self.pool_layers = []
 		for _ in range(self.number_of_conv_layers):
 			if(self.use_unique_pixel_weights):
 				conv = LocallyConnected2d(conv_in_channels, conv_out_channels, (self.feature_height, self.feature_width), kernel_size=self.conv_kernel_size, stride=self.conv_stride, padding=self.conv_padding, bias=True)
@@ -110,8 +113,11 @@ class _CNNActionLayerBase(nn.Module):
 				conv = nn.Conv2d(conv_in_channels, conv_out_channels, kernel_size=self.conv_kernel_size, stride=self.conv_stride, padding=self.conv_padding, bias=True)
 				self._initialise_dense_conv(conv)
 			self.conv_layers.append(conv)
-			pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-			self.pool_layers.append(pool)
+			if(RPICNNpool):
+				pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+				self.pool_layers.append(pool)
+			else:
+				self.pool_layers.append(None)
 		if(self.use_activation):
 			self.activation = nn.ReLU()
 		else:
@@ -147,7 +153,10 @@ class _CNNActionLayerBase(nn.Module):
 				combined = current
 			out = conv(combined)
 			out = self.activation(out)
-			current = pool(out)
+			if(RPICNNpool):
+				current = pool(out)
+			else:
+				current = out
 		if(hiddenActivationFunctionTanh):
 			current = pt.tanh(current)
 		current = current * self.action_scale
