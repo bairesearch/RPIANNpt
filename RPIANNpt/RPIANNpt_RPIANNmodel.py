@@ -30,7 +30,7 @@ else:
 	from RPIANNpt_RPIANNmodelLayerMLP import *
 
 class RPIANNconfig():
-	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None):
+	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None, class_exemplar_images=None):
 		self.batchSize = batchSize
 		self.numberOfLayers = numberOfLayers
 		self.numberOfConvlayers = numberOfConvlayers
@@ -44,6 +44,7 @@ class RPIANNconfig():
 		self.datasetSize = datasetSize		
 		self.numberOfClassSamples = numberOfClassSamples
 		self.inputImageShape = inputImageShape
+		self.class_exemplar_images = class_exemplar_images
 
 class RPIANNmodel(nn.Module):
 		
@@ -54,19 +55,21 @@ class RPIANNmodel(nn.Module):
 		# Interpret the existing hidden layer size as the shared embedding dimensionality.
 		self.embedding_dim = config.hiddenLayerSize
 		self.recursion_steps = config.numberOfLayers
-
-		self.using_image_projection = useCNNlayers
+		self.use_recursive_layers = useRecursiveLayers
+		self.use_hidden_activation = hiddenActivationFunction
+	
+		self.use_target_exemplar_projection = targetProjectionExemplarImage
+		self.using_input_image_projection = useCNNlayersInputProjection
+		self.using_target_image_projection = useCNNlayersTargetProjection
 		self.using_rpi_cnn = useRPICNN
 		if(useImageDataset):	
 			projection_stride = CNNprojectionStride
-		self._x_feature_shape = None
-		self._y_feature_shape = None
-		self._x_feature_size = None
+			self._x_feature_shape = None
+			self._y_feature_shape = None
+			self._x_feature_size = None
 		self._y_feature_size = self.embedding_dim
-		self.use_recursive_layers = useRecursiveLayers
-		self.use_hidden_activation = hiddenActivationFunction
 
-		if(self.using_image_projection):
+		if(self.using_input_image_projection):
 			if(self.using_rpi_cnn):
 				self.input_projection, feature_shape = self._build_image_projection(config, stride=projection_stride, trainable=False)
 				self._x_feature_shape = feature_shape
@@ -92,9 +95,35 @@ class RPIANNmodel(nn.Module):
 				self._initialise_random_linear(self.input_projection)
 				self.input_projection.weight.requires_grad_(False)
 
-		self.target_projection = nn.Linear(config.outputLayerSize, self.embedding_dim, bias=False)
-		self._initialise_random_linear(self.target_projection)
-		self.target_projection.weight.requires_grad_(False)
+		if(self.use_target_exemplar_projection):
+			exemplar_images = config.class_exemplar_images
+			if exemplar_images is None:
+				raise ValueError("targetProjectionExemplarImage=True requires exemplar images in the configuration.")
+			if not isinstance(exemplar_images, pt.Tensor):
+				exemplar_images = pt.as_tensor(exemplar_images, dtype=pt.float32)
+			exemplar_images = exemplar_images.clone().detach().to(dtype=pt.float32)
+			if exemplar_images.ndim != 4:
+				raise ValueError("Class exemplar images must be a tensor of shape [num_classes, channels, height, width].")
+			if exemplar_images.shape[0] != config.numberOfClasses:
+				raise ValueError("Number of exemplar images must match number of classes.")
+			self.register_buffer("class_exemplar_images", exemplar_images)
+		
+		if(self.using_target_image_projection):
+			#cnn target projection
+			self.target_projection, _ = self._build_image_projection(config, stride=projection_stride, trainable=False)
+		else:
+			#linear target projection
+			if(self.use_target_exemplar_projection):
+				exemplar_shape = tuple(exemplar_images.shape[1:])
+				flat_size = self._feature_size(exemplar_shape)
+				linear_projection = nn.Linear(flat_size, self.embedding_dim, bias=False)
+				self._initialise_random_linear(linear_projection)
+				linear_projection.weight.requires_grad_(False)
+				self.target_projection = nn.Sequential(nn.Flatten(start_dim=1), linear_projection)
+			else:
+				self.target_projection = nn.Linear(config.outputLayerSize, self.embedding_dim, bias=False)
+				self._initialise_random_linear(self.target_projection)
+				self.target_projection.weight.requires_grad_(False)
 
 		if(inputProjectionActivationFunction):
 			self.input_projection_activation = nn.ReLU()
@@ -109,12 +138,19 @@ class RPIANNmodel(nn.Module):
 			self.target_projection_activation = nn.ReLU()
 		else:
 			self.target_projection_activation = nn.Identity()
+
 		if(targetProjectionActivationFunctionTanh):
 			self.target_projection_activation_tanh = nn.Tanh()
 		else:
 			self.target_projection_activation_tanh = nn.Identity()
 
-		self.initial_predictor = nn.Linear(self.embedding_dim, self.embedding_dim)
+		if(self.use_target_exemplar_projection):
+			with pt.no_grad():
+				class_embeddings = self._project_exemplar_images(self.class_exemplar_images)
+			self.register_buffer("target_projection_weight_matrix", class_embeddings.transpose(0, 1).contiguous())
+		else:
+			self.target_projection_weight_matrix = None
+
 		if(self.use_recursive_layers):
 			if(self.using_rpi_cnn):
 				self.recursive_layer = RecursiveCNNActionLayer(self._y_feature_shape, numberOfSublayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape)
@@ -182,7 +218,7 @@ class RPIANNmodel(nn.Module):
 			raise ValueError("Image projection requires a defined input image shape.")
 		if(stride not in (1, 2)):
 			raise ValueError("Image projection stride must be 1 or 2.")
-		number_of_convs = config.numberOfConvlayers or 1
+		number_of_convs = config.numberOfConvlayers
 		if(number_of_convs <= 0):
 			raise ValueError("numberOfConvlayers must be a positive integer.")
 
@@ -315,7 +351,11 @@ class RPIANNmodel(nn.Module):
 
 	def project_to_classes(self, y_hat):
 		# Using the frozen target projection weights as a random classifier head.
-		return pt.matmul(y_hat, self.target_projection.weight)
+		if(self.use_target_exemplar_projection):
+			weight = self.target_projection_weight_matrix
+		else:
+			weight = self.target_projection.weight
+		return pt.matmul(y_hat, weight)
 
 	def _zero_y_hat_like(self, reference_tensor):
 		return reference_tensor.new_zeros((reference_tensor.shape[0], self._y_feature_size))
@@ -324,11 +364,21 @@ class RPIANNmodel(nn.Module):
 		projected = self.encode_inputs(x)
 		return projected
 
+	def _project_exemplar_images(self, images):
+		projected = self.target_projection(images)
+		projected = self.target_projection_activation(projected)
+		projected = self.target_projection_activation_tanh(projected)
+		return projected
+	
 	def encode_targets(self, y):
-		y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
-		target_embedding = self.target_projection(y_one_hot)
-		target_embedding = self.target_projection_activation(target_embedding)
-		target_embedding = self.target_projection_activation_tanh(target_embedding)
+		if(self.use_target_exemplar_projection):
+			exemplar_images = self.class_exemplar_images.index_select(0, y)
+			target_embedding = self._project_exemplar_images(exemplar_images)
+		else:
+			y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
+			target_embedding = self.target_projection(y_one_hot)
+			target_embedding = self.target_projection_activation(target_embedding)
+			target_embedding = self.target_projection_activation_tanh(target_embedding)
 		return target_embedding
 	
 	def encode_inputs(self, x):

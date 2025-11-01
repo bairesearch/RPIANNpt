@@ -67,3 +67,14 @@ Please proceed with implementation, but also inform me of any algorithmic issues
 RPICNNuniqueWeightsPerPixel (Codex IDE GPT5Codex prompt):
 
 Please implement option RPICNNuniqueWeightsPerPixel=True (for case useRPICNN=True). Each pixel of the RPICNN action layer has its own unique CNN kernel weights.
+
+---
+targetProjectionExemplarImage (Codex IDE GPT5Codex prompt):
+
+Please implement option targetProjectionExemplarImage=True (for case useImageDataset=True); the embedding layer target is created by selecting the first image in the train dataset of the particular class target.
+- If useCNNlayers=True, this exemplar image is fed through an untrained CNN (using the same code as the image input projection) to produce the embedding layer target (for the useClassificationLayerLoss=False training regime). 
+- If useCNNlayers=False, this exemplar image is fed through a standard linear target projection matrix of the appropriate dimensions to produce the embedding layer target (for the useClassificationLayerLoss=False training regime).
+
+To achieve this, please update encode_targets() accordingly for case targetProjectionExemplarImage=True;
+1. generate the exemplar image from the class target
+2. self.target_projection will either be an image projection (useCNNlayers=True) or a linear projection (useCNNlayers=False).

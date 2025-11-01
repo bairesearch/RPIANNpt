@@ -52,18 +52,25 @@ if(numberOfSublayers > 1):
 useImageDataset = False 	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
-	useRPICNN = True	#orig: False	#recursive CNN layers
+	useRPICNN = False	#orig: False	#recursive CNN layers
 	if(useRPICNN):
-		useCNNlayers = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
-		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 		RPICNNuniqueWeightsPerPixel = True	#default: True	#orig: False	#each pixel of the RPICNN action layer has its own unique CNN kernel weights
+		useCNNlayersInputProjection = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+		useCNNlayersTargetProjection = False	#orig: False	#required to retain target image space 
+		targetProjectionExemplarImage = useCNNlayersTargetProjection	#orig: False	#required to retain target image space
+		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 	else:
-		useCNNlayers = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
+		useCNNlayersInputProjection = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
+		useCNNlayersTargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
+		targetProjectionExemplarImage = useCNNlayersTargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
 else:
 	useTabularDataset = True
 	useRPICNN = False
 	useCNNlayers = False
-		
+	useCNNlayersInputProjection = False
+	useCNNlayersTargetProjection = False
+	targetProjectionExemplarImage = False
+
 #activation function parameters:
 inputProjectionActivationFunction = True	#default: True	#orig: False	#relu	#not necessary (removes 50% bits from input projection output), but keeps all layer inputs (x embed and y hat) in similar range (ie zero or positive)
 inputProjectionActivationFunctionTanh = True	#default: True	#orig: True	#tanh	#input should already be normalised from 0 to 1
@@ -75,6 +82,10 @@ targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: 
 #CNN parameters:
 if(useImageDataset):
 	hiddenLayerSize = 2048	#default: 2048
+	if(useCNNlayersInputProjection or useCNNlayersTargetProjection):
+		useCNNlayers = True	#untrained CNN layers (input/target image projection)
+	else:
+		useCNNlayers = False
 	if(useCNNlayers):
 		numberOfConvlayers = 1	#default: 1	#1 or 2 (untrained CNN projection)
 		if(useRPICNN):

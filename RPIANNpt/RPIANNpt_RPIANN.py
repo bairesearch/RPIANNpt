@@ -19,8 +19,60 @@ RPIANNpt Recursive Prediction Improvement artificial neural network
 
 from ANNpt_globalDefs import *
 from torchsummary import summary
+import torch as pt
 import RPIANNpt_RPIANNmodel
 import ANNpt_data
+
+
+def _extract_class_exemplar_images(dataset, number_of_classes):
+	if not targetProjectionExemplarImage or not useImageDataset:
+		return None
+	try:
+		import torchvision.transforms as transforms
+		from PIL import Image
+	except ImportError as exc:
+		raise ImportError("Torchvision and PIL are required to extract exemplar images.") from exc
+
+	base_transform = transforms.Compose([
+		transforms.ToTensor(),
+		transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+	])
+
+	exemplars = [None] * number_of_classes
+	remaining = set(range(number_of_classes))
+
+	data_attr = getattr(dataset, "data", None)
+	targets_attr = getattr(dataset, "targets", None)
+
+	if data_attr is not None and targets_attr is not None:
+		for raw_image, label in zip(data_attr, targets_attr):
+			label_idx = int(label)
+			if label_idx in remaining:
+				pil_image = Image.fromarray(raw_image)
+				tensor_image = base_transform(pil_image)
+				exemplars[label_idx] = tensor_image
+				remaining.discard(label_idx)
+				if not remaining:
+					break
+	else:
+		for index in range(len(dataset)):
+			image, label = dataset[index]
+			label_idx = int(label)
+			if label_idx in remaining:
+				if isinstance(image, pt.Tensor):
+					tensor_image = image.clone()
+				else:
+					pil_image = Image.fromarray(image)
+					tensor_image = base_transform(pil_image)
+				exemplars[label_idx] = tensor_image
+				remaining.discard(label_idx)
+				if not remaining:
+					break
+
+	if any(exemplar is None for exemplar in exemplars):
+		raise ValueError("Unable to locate exemplar images for all classes in the training dataset.")
+
+	return pt.stack(exemplars)
 
 def createModel(dataset):
 	datasetSize = ANNpt_data.getDatasetSize(dataset, printSize=True)
@@ -31,6 +83,11 @@ def createModel(dataset):
 		inputImageShape = CNNinputShape
 	else:
 		inputImageShape = None
+
+	if(targetProjectionExemplarImage and useImageDataset):
+		class_exemplar_images = _extract_class_exemplar_images(dataset, numberOfClasses)
+	else:
+		class_exemplar_images = None
 	if(printRPIANNmodelProperties):
 		print("Creating new model:")
 		print("\t ---")
@@ -96,6 +153,7 @@ def createModel(dataset):
 		datasetSize = datasetSize,
 		numberOfClassSamples = numberOfClassSamples,
 		inputImageShape = inputImageShape,
+		class_exemplar_images = class_exemplar_images,
 	)
 	model = RPIANNpt_RPIANNmodel.RPIANNmodel(config)
 		
