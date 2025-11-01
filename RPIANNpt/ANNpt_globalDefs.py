@@ -414,7 +414,7 @@ elif(useImageDataset):
 			numberOfFFLayers = numberOfFFLayers*2
 		numberOfLayers = numberOfConvlayers+numberOfFFLayers	#counts hidden and output layers (not input layer)
 	elif(useAlgorithmRPIANN):
-		batchSize = 1024	#128	 #default: 128	#orig: 64
+		batchSize = 128	#1024	#128	 #default: 128	#orig: 64
 	else:
 		batchSize = 128	 #default: 128	#orig: 64
 		numberOfConvlayers = 6	#rest will be FF	#orig: 2	#default: 2, 4, 6

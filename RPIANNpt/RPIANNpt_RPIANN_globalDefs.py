@@ -52,9 +52,11 @@ if(numberOfSublayers > 1):
 useImageDataset = False 	#use CIFAR-10 dataset with CNN
 if(useImageDataset):
 	useTabularDataset = False
-	useRPICNN = False	#orig: False
+	useRPICNN = True	#orig: False	#recursive CNN layers
 	if(useRPICNN):
-		useCNNlayers = True	#default: True	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+		useCNNlayers = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
+		RPICNNuniqueWeightsPerPixel = True	#default: True	#orig: False	#each pixel of the RPICNN action layer has its own unique CNN kernel weights
 	else:
 		useCNNlayers = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
 else:

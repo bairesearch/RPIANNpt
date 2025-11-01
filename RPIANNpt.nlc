@@ -62,3 +62,8 @@ There is no theoretical reason why the num channels for x_embed and y_hat are id
 4. please add bool option useRPIANNimageProjection=False, and set it to False by default. In this case x_embed will have 3 channels (corresponding to the CIFAR image channels).
 
 Please proceed with implementation, but also inform me of any algorithmic issues you encounter when thinking about the new implementation.
+
+---
+RPICNNuniqueWeightsPerPixel (Codex IDE GPT5Codex prompt):
+
+Please implement option RPICNNuniqueWeightsPerPixel=True (for case useRPICNN=True). Each pixel of the RPICNN action layer has its own unique CNN kernel weights.

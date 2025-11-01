@@ -15,7 +15,7 @@ if(showXaxisUniform):
 	x_pos = np.arange(len(x_values))
 
 # One label per group (these are also the legend keys lines)
-group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "numberOfLayers=9 useRecursiveLayers", "numberOfLayers=1"]
+group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "numberOfLayers=1r9 useRecursiveLayers", "numberOfLayers=1"]
 	
 # Optional long descriptions shown in the right-side key
 group_descriptions = [

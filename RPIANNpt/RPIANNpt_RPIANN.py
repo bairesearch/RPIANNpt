@@ -76,8 +76,9 @@ def createModel(dataset):
 		if(useImageDataset):
 			print("\t useRPICNN = ", useRPICNN)
 			print("\t useCNNlayers (untrained input projection) = ", useCNNlayers)
-			print("\t numberOfConvlayers = ", numberOfConvlayers)
-			print("\t imageProjectionActivationFunction = ", imageProjectionActivationFunction)
+			if(useCNNlayers):
+				print("\t numberOfConvlayers = ", numberOfConvlayers)
+				print("\t imageProjectionActivationFunction = ", imageProjectionActivationFunction)
 		#print("\t numberOfConvlayers = ", numberOfConvlayers)
 
 

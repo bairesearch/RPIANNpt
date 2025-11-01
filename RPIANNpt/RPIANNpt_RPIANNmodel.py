@@ -24,6 +24,10 @@ from torch import nn
 import torch.nn.functional as F
 from ANNpt_globalDefs import *
 from torchmetrics.classification import Accuracy
+if(useRPICNN):
+	from RPIANNpt_RPIANNmodelLayerCNN import *
+else:
+	from RPIANNpt_RPIANNmodelLayerMLP import *
 
 class RPIANNconfig():
 	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None):
@@ -41,209 +45,6 @@ class RPIANNconfig():
 		self.numberOfClassSamples = numberOfClassSamples
 		self.inputImageShape = inputImageShape
 
-class SeparateStreamsFirstSublayer(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim):
-		super().__init__()
-		if(hidden_dim < 2):
-			raise ValueError("hidden_dim must be at least 2 to split x_embed and y_hat streams separately.")
-		self.embedding_dim = embedding_dim
-		self.hidden_dim = hidden_dim
-		self.x_out_features = math.ceil(hidden_dim / 2.0)
-		self.y_out_features = hidden_dim - self.x_out_features
-		if(self.y_out_features == 0):
-			raise ValueError("hidden_dim too small to allocate features to both x_embed and y_hat streams.")
-		self.x_linear = nn.Linear(embedding_dim, self.x_out_features)
-		self.y_linear = nn.Linear(embedding_dim, self.y_out_features)
-
-	def forward(self, combined):
-		expected_features = self.embedding_dim * 2
-		if(combined.shape[-1] != expected_features):
-			raise ValueError(f"SeparateStreamsFirstSublayer expected input feature dimension {expected_features}, received {combined.shape[-1]}.")
-		x_embed = combined[..., :self.embedding_dim]
-		y_hat = combined[..., self.embedding_dim:]
-		x_proj = self.x_linear(x_embed)
-		y_proj = self.y_linear(y_hat)
-		return pt.cat([x_proj, y_proj], dim=-1)
-
-class _ActionLayerBase(nn.Module):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
-		super().__init__()
-		if(use_activation):
-			activation_module = nn.ReLU()
-		else:
-			activation_module = nn.Identity()
-		if(numberOfSublayers == 1):
-			hidden_dim = embedding_dim
-			if(layersFeedConcatInput):
-				first_layer = nn.Linear(embedding_dim * 2, hidden_dim)
-			else:
-				first_layer = nn.Linear(embedding_dim, hidden_dim)
-			self.action = nn.Sequential(
-				first_layer,
-				activation_module,
-			)
-		elif(numberOfSublayers == 2):
-			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
-			if(layersFeedConcatInput):
-				if(subLayerFirstMixXembedYhatStreamsSeparately):
-					first_layer = SeparateStreamsFirstSublayer(embedding_dim, hidden_dim)
-				else:
-					first_layer = nn.Linear(embedding_dim * 2, hidden_dim)
-			else:
-				first_layer = nn.Linear(embedding_dim, hidden_dim)
-			if(subLayerFirstNotTrained):
-				self._initialise_random_linear_layer(first_layer)
-				for param in first_layer.parameters():
-					param.requires_grad_(False)
-			second_layer = nn.Linear(hidden_dim, embedding_dim)
-			self.action = nn.Sequential(
-				first_layer,
-				nn.ReLU(),
-				second_layer,
-				activation_module
-			)
-		else:
-			printe("invalid number numberOfSublayers")
-		self.action_scale = action_scale
-	
-	def _initialise_random_linear_layer(self, layer):
-		if(isinstance(layer, SeparateStreamsFirstSublayer)):
-			self._initialise_dense_linear(layer.x_linear)
-			self._initialise_dense_linear(layer.y_linear)
-			if subLayerFirstSparse:
-				self._apply_sparse_mask(layer.x_linear.weight, subLayerFirstSparsityLevel)
-				self._apply_sparse_mask(layer.y_linear.weight, subLayerFirstSparsityLevel)
-		else:
-			self._initialise_dense_linear(layer)
-			if subLayerFirstSparse:
-				self._apply_sparse_mask(layer.weight, subLayerFirstSparsityLevel)
-
-	def _initialise_dense_linear(self, linear_module):
-		std = 1.0 / math.sqrt(linear_module.out_features)
-		nn.init.normal_(linear_module.weight, mean=0.0, std=std)
-		if(linear_module.bias is not None):
-			nn.init.zeros_(linear_module.bias)
-
-	def _apply_sparse_mask(self, weight, sparsity_level):
-		if(sparsity_level == 0.0):
-			return
-		if(sparsity_level < 0.0 or sparsity_level >= 1.0):
-			raise ValueError("subLayerFirstSparsityLevel must be within [0.0, 1.0) to retain connections.")
-		keep_fraction = 1.0 - sparsity_level
-		in_features = weight.shape[1]
-		target_connections = max(1, int(math.ceil(keep_fraction * in_features)))
-		target_connections = min(target_connections, in_features)
-		if(target_connections == in_features):
-			return
-		with pt.no_grad():
-			mask = weight.new_zeros(weight.shape)
-			for row in range(weight.shape[0]):
-				selected_indices = pt.randperm(in_features, device=weight.device)[:target_connections]
-				mask[row, selected_indices] = 1.0
-			weight.mul_(mask)
-
-	def forward(self, y_hat, x_embed):
-		if(layersFeedConcatInput):
-			combined = pt.cat([x_embed, y_hat], dim=-1)
-		else:
-			combined = y_hat
-		raw_update = self.action(combined)
-		if(hiddenActivationFunctionTanh):
-			raw_update = pt.tanh(raw_update)
-		update = raw_update * self.action_scale	# Limit the magnitude of the proposed update so the recursion remains stable
-		return update
-
-class RecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
-		super().__init__(embedding_dim, action_scale, use_activation)
-
-class NonRecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
-		super().__init__(embedding_dim, action_scale, use_activation)
-
-class _CNNActionLayerBase(nn.Module):
-	def __init__(self, y_feature_shape, number_of_conv_layers, action_scale, use_activation=True, x_feature_shape=None):
-		super().__init__()
-		if(y_feature_shape is None):
-			raise ValueError("RPICNN requires target feature shape for y_hat.")
-		if(number_of_conv_layers is None or number_of_conv_layers <= 0):
-			raise ValueError("numberOfConvlayers must be a positive integer when useRPICNN is enabled.")
-		self.y_channels, self.feature_height, self.feature_width = y_feature_shape
-		if(x_feature_shape is None):
-			self.x_channels = self.y_channels
-		else:
-			self.x_channels, x_height, x_width = x_feature_shape
-			if(x_height != self.feature_height or x_width != self.feature_width):
-				raise ValueError("RPICNN requires x_embed and y_hat to share spatial dimensions.")
-		self.y_feature_size = self.y_channels * self.feature_height * self.feature_width
-		self.x_feature_size = self.x_channels * self.feature_height * self.feature_width
-		self.number_of_conv_layers = number_of_conv_layers
-		self.action_scale = action_scale
-		self.use_activation = use_activation
-
-		if(layersFeedConcatInput):
-			conv_in_channels = self.x_channels + self.y_channels
-		else:
-			conv_in_channels = self.y_channels
-		conv_out_channels = self.y_channels
-
-		self.conv_layers = nn.ModuleList()
-		self.pool_layers = nn.ModuleList()
-		for _ in range(self.number_of_conv_layers):
-			conv = nn.Conv2d(conv_in_channels, conv_out_channels, kernel_size=3, stride=1, padding=1, bias=True)
-			self._initialise_dense_conv(conv)
-			self.conv_layers.append(conv)
-			pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-			self.pool_layers.append(pool)
-		if(self.use_activation):
-			self.activation = nn.ReLU()
-		else:
-			self.activation = nn.Identity()
-
-	def _initialise_dense_conv(self, conv_module):
-		kernel_height, kernel_width = conv_module.kernel_size
-		fan_out = conv_module.out_channels * kernel_height * kernel_width
-		std = 1.0 / math.sqrt(fan_out)
-		nn.init.normal_(conv_module.weight, mean=0.0, std=std)
-		if(conv_module.bias is not None):
-			nn.init.zeros_(conv_module.bias)
-
-	def _reshape_flat_to_feature(self, tensor, expected_size, channels, tensor_name):
-		if(tensor.dim() != 2 or tensor.shape[1] != expected_size):
-			raise ValueError(f"RPICNN layer expected flattened tensor '{tensor_name}' with feature dimension {expected_size}, received shape {tensor.shape}.")
-		return tensor.reshape(tensor.shape[0], channels, self.feature_height, self.feature_width)
-
-	def _reshape_feature_to_flat(self, tensor):
-		return tensor.reshape(tensor.shape[0], -1)
-
-	def forward(self, y_hat, x_embed):
-		y_hat_feature = self._reshape_flat_to_feature(y_hat, self.y_feature_size, self.y_channels, "y_hat")
-		if(layersFeedConcatInput):
-			x_embed_feature = self._reshape_flat_to_feature(x_embed, self.x_feature_size, self.x_channels, "x_embed")
-		else:
-			x_embed_feature = None
-		current = y_hat_feature
-		for conv, pool in zip(self.conv_layers, self.pool_layers):
-			if(layersFeedConcatInput):
-				combined = pt.cat([x_embed_feature, current], dim=1)
-			else:
-				combined = current
-			out = conv(combined)
-			out = self.activation(out)
-			current = pool(out)
-		if(hiddenActivationFunctionTanh):
-			current = pt.tanh(current)
-		current = current * self.action_scale
-		return self._reshape_feature_to_flat(current)
-
-class RecursiveCNNActionLayer(_CNNActionLayerBase):
-	def __init__(self, y_feature_shape, number_of_conv_layers, action_scale, use_activation=True, x_feature_shape=None):
-		super().__init__(y_feature_shape, number_of_conv_layers, action_scale, use_activation, x_feature_shape=x_feature_shape)
-
-class NonRecursiveCNNActionLayer(_CNNActionLayerBase):
-	def __init__(self, y_feature_shape, number_of_conv_layers, action_scale, use_activation=True, x_feature_shape=None):
-		super().__init__(y_feature_shape, number_of_conv_layers, action_scale, use_activation, x_feature_shape=x_feature_shape)
-
 class RPIANNmodel(nn.Module):
 		
 	def __init__(self, config):
@@ -256,6 +57,8 @@ class RPIANNmodel(nn.Module):
 
 		self.using_image_projection = useCNNlayers
 		self.using_rpi_cnn = useRPICNN
+		if(useImageDataset):	
+			projection_stride = CNNprojectionStride
 		self._x_feature_shape = None
 		self._y_feature_shape = None
 		self._x_feature_size = None
@@ -264,7 +67,6 @@ class RPIANNmodel(nn.Module):
 		self.use_hidden_activation = hiddenActivationFunction
 
 		if(self.using_image_projection):
-			projection_stride = CNNprojectionStride
 			if(self.using_rpi_cnn):
 				self.input_projection, feature_shape = self._build_image_projection(config, stride=projection_stride, trainable=False)
 				self._x_feature_shape = feature_shape
@@ -315,14 +117,14 @@ class RPIANNmodel(nn.Module):
 		self.initial_predictor = nn.Linear(self.embedding_dim, self.embedding_dim)
 		if(self.use_recursive_layers):
 			if(self.using_rpi_cnn):
-				self.recursive_layer = RecursiveCNNActionLayer(self._y_feature_shape, config.numberOfConvlayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape)
+				self.recursive_layer = RecursiveCNNActionLayer(self._y_feature_shape, numberOfSublayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape)
 			else:
 				self.recursive_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation)
 			self.nonrecursive_layers = None
 		else:
 			self.recursive_layer = None
 			if(self.using_rpi_cnn):
-				self.nonrecursive_layers = nn.ModuleList([NonRecursiveCNNActionLayer(self._y_feature_shape, config.numberOfConvlayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape) for _ in range(self.recursion_steps)])
+				self.nonrecursive_layers = nn.ModuleList([NonRecursiveCNNActionLayer(self._y_feature_shape, numberOfSublayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape) for _ in range(self.recursion_steps)])
 			else:
 				self.nonrecursive_layers = nn.ModuleList([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation) for _ in range(self.recursion_steps)])
 		if(useClassificationLayerLoss):
