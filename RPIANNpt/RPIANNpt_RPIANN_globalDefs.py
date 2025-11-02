@@ -59,21 +59,20 @@ if(useImageDataset):
 			RPICNNpool = False	#default: False
 		else:
 			RPICNNpool = True	#default: True
-		useCNNlayersInputProjection = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
-		useCNNlayersTargetProjection = False	#orig: False	#required to retain target image space 
-		targetProjectionExemplarImage = useCNNlayersTargetProjection	#default: useCNNlayersTargetProjection	#orig: False	#required to retain target image space
+		useCNNinputProjection = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+		useCNNtargetProjection = False	#orig: False	#required to retain target image space 
+		targetProjectionExemplarImage = useCNNtargetProjection	#default: useCNNtargetProjection	#orig: False	#required to retain target image space
 		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 	else:
 		RPICNNuniqueWeightsPerPixel = False
-		useCNNlayersInputProjection = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
-		useCNNlayersTargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
-		targetProjectionExemplarImage = useCNNlayersTargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
+		useCNNinputProjection = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
+		useCNNtargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
+		targetProjectionExemplarImage = useCNNtargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
 else:
 	useTabularDataset = True
 	useRPICNN = False
-	useCNNlayers = False
-	useCNNlayersInputProjection = False
-	useCNNlayersTargetProjection = False
+	useCNNinputProjection = False
+	useCNNtargetProjection = False
 	targetProjectionExemplarImage = False
 
 #activation function parameters:
@@ -83,25 +82,33 @@ hiddenActivationFunction = True	#default: True	#orig: True	#relu
 hiddenActivationFunctionTanh = True	#default: True	#orig: True	#tanh
 targetProjectionActivationFunction = hiddenActivationFunction	#default: True	#orig: True	#relu
 targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: True	#orig: False	#tanh
+targetProjectionUniquePerLayer = False	#default: False	#orig: False
+
+#target embedding sparsity parameters:
+targetProjectionSparse = False #default: False #orig: False	#generate a sparse instead of dense target embedding
+targetProjectionSparsityLevel = 0.9	#fraction of target projection weights zeroed when targetProjectionSparse=True (0.0-1.0)
 
 #CNN parameters:
 if(useImageDataset):
-	hiddenLayerSize = 2048	#default: 2048
-	if(useCNNlayersInputProjection or useCNNlayersTargetProjection):
-		useCNNlayers = True	#untrained CNN layers (input/target image projection)
+	hiddenLayerSize = 2048	#2048	#*8	#default: 2048
+	if(useCNNinputProjection or useCNNtargetProjection):
+		useCNNprojection = True	#untrained CNN layers (input/target image projection)
 	else:
-		useCNNlayers = False
-	if(useCNNlayers):
-		numberOfConvlayers = 1	#default: 1	#1 or 2 (untrained CNN projection)
+		useCNNprojection = False
+	if(useCNNprojection):
+		CNNprojectionNumlayers = 1	#default: 1	#1 or 2 (untrained CNN projection)
 		if(useRPICNN):
 			CNNprojectionStride = 1	#default: 1 (preserves spatial size) #stride for image projection pooling layers	#use stride 1 for RPICNN to use original image spatial dimensions
 		else:
 			CNNprojectionStride = 2	#default: 2	#stride for image projection pooling layers
-		imageProjectionActivationFunction = True	#default: True	#orig: True	#relu	#will effectively override inputProjectionActivationFunction=False
+		CNNprojectionActivationFunction = True	#default: True	#orig: True	#relu	#will effectively override inputProjectionActivationFunction=False
 	else:
+		CNNprojectionNumlayers = 1	#effective CNN projection layers (no change from input pixel space)
 		CNNprojectionStride = 1	#effective CNN stride (no change from input pixel space)
 	if(useRPICNN):
-		numberOfLayers = 9 #number RPICNN layers (overridden by numberOfLayersLow)	#default: 9
+		numberOfConvlayers = 6	#number RPICNN layers 	#default: 2, 4, 6	#orig: 9	#default: 6
+		numberOfFFLayers = 3	#number FF layers	#orig: 0	#default: 3
+		numberOfLayers = numberOfConvlayers+numberOfFFLayers #(overridden by numberOfLayersLow)
 	else:
 		numberOfLayers = 9 #number FF layers (overridden by numberOfLayersLow)	#default: 9
 

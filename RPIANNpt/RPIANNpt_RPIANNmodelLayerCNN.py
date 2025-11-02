@@ -97,6 +97,8 @@ class _CNNActionLayerBase(nn.Module):
 		else:
 			conv_in_channels = self.y_channels
 		conv_out_channels = self.y_channels
+		print(f"RPICNN conv in/out channels: {conv_in_channels} -> {conv_out_channels}")
+
 		self.conv_kernel_size = 3
 		self.conv_stride = 1
 		self.conv_padding = 1

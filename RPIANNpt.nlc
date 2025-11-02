@@ -78,3 +78,18 @@ Please implement option targetProjectionExemplarImage=True (for case useImageDat
 To achieve this, please update encode_targets() accordingly for case targetProjectionExemplarImage=True;
 1. generate the exemplar image from the class target
 2. self.target_projection will either be an image projection (useCNNlayers=True) or a linear projection (useCNNlayers=False).
+
+---
+targetProjectionSparse (Codex IDE GPT5Codex prompt):
+
+add option targetProjectionSparse=True - modify target_projection to generate a sparse instead of dense target embedding (for case useCNNtargetProjection=False), while providing a parameter to set the level of this sparsity.
+
+---
+targetProjectionUniquePerLayer (Codex IDE GPT5Codex prompt):
+
+Please create option targetProjectionUniquePerLayer = True - create a separate target embedding for each RPI layer.
+
+---
+independent useRPICNN and useRPIANN (Codex IDE GPT5Codex prompt):
+
+Please upgrade useRPICNN=True to create independent CNNActionLayers (numberOfConvlayers) and ActionLayers (numberOfFFLayers), instead of just creating just CNNActionLayers. useRPICNN=False still creates the same number of ActionLayers (numberOfLayers).

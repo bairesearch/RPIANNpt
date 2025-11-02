@@ -128,22 +128,25 @@ def createModel(dataset):
 		print("\t hiddenActivationFunctionTanh = ", hiddenActivationFunctionTanh)
 		print("\t targetProjectionActivationFunction = ", targetProjectionActivationFunction)
 		print("\t targetProjectionActivationFunctionTanh = ", targetProjectionActivationFunctionTanh)
+		print("\t targetProjectionUniquePerLayer = ", targetProjectionUniquePerLayer)
+		print("\t targetProjectionSparse = ", targetProjectionSparse)
+		print("\t targetProjectionSparsityLevel = ", targetProjectionSparsityLevel)
 		print("\t ---")
 		print("\t useImageDataset = ", useImageDataset)
 		if(useImageDataset):
 			print("\t targetProjectionExemplarImage = ", targetProjectionExemplarImage)
-			print("\t useCNNlayers = ", useCNNlayers)
-			if(useCNNlayers):
-				print("\t\t numberOfConvlayers = ", numberOfConvlayers)
-				print("\t\t imageProjectionActivationFunction = ", imageProjectionActivationFunction)
-				print("\t\t useCNNlayersInputProjection = ", useCNNlayersInputProjection)
-				print("\t\t useCNNlayersTargetProjection = ", useCNNlayersTargetProjection)
+			print("\t useCNNprojection = ", useCNNprojection)
+			if(useCNNprojection):
+				print("\t\t useCNNinputProjection = ", useCNNinputProjection)
+				print("\t\t useCNNtargetProjection = ", useCNNtargetProjection)
+				print("\t\t CNNprojectionNumlayers = ", CNNprojectionNumlayers)
+				print("\t\t CNNprojectionActivationFunction = ", CNNprojectionActivationFunction)
 			print("\t useRPICNN = ", useRPICNN)
 			if(useRPICNN):
+				print("\t\t numberOfConvlayers = ", numberOfConvlayers)
+				print("\t\t numberOfFFLayers = ", numberOfFFLayers)
 				print("\t\t RPICNNuniqueWeightsPerPixel = ", RPICNNuniqueWeightsPerPixel)
 				print("\t\t RPICNNpool = ", RPICNNpool)
-
-		#print("\t numberOfConvlayers = ", numberOfConvlayers)
 
 
 	config = RPIANNpt_RPIANNmodel.RPIANNconfig(
