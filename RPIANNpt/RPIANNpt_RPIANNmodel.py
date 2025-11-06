@@ -601,12 +601,14 @@ class RPIANNmodel(nn.Module):
 				layer_embedding = self.target_projection_activation(layer_embedding)
 				layer_embedding = self.target_projection_activation_tanh(layer_embedding)
 				layer_embeddings.append(layer_embedding)
+
 		if(self.target_projection_unique_per_layer):
+			target_embeddings = pt.stack(layer_embeddings, dim=0)
+		else:
 			if not layer_embeddings:
 				raise ValueError("encode_targets produced no target embeddings.")
-			target_embeddings = pt.stack(layer_embeddings, dim=0)
-			return target_embeddings
-		raise ValueError("encode_targets produced no target embeddings.")
+			target_embeddings = layer_embeddings[-1]
+		return target_embeddings
 	
 	def encode_inputs(self, x):
 		input_embedding = self.input_projection(x)
