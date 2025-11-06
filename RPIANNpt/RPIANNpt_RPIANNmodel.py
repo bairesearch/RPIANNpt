@@ -434,7 +434,7 @@ class RPIANNmodel(nn.Module):
 				update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
 				y_hat_state = self._applyResidual(y_hat_state, update)
 
-		return update
+		return y_hat_state
 
 	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
 		opt = self._resolve_local_optimizer(optim, index)
