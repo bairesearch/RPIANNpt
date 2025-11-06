@@ -58,11 +58,12 @@ class RPIANNmodel(nn.Module):
 		self.use_recursive_layers = useRecursiveLayers
 		self.use_hidden_activation = hiddenActivationFunction
 		self.target_projection_unique_per_layer = targetProjectionUniquePerLayer
-	
+
 		self.use_target_exemplar_projection = targetProjectionExemplarImage
 		self.using_input_image_projection = useCNNinputProjection
 		self.using_target_image_projection = useCNNtargetProjection
 		self.using_rpi_cnn = useRPICNN
+		self._uses_layer_specific_targets = bool(targetProjectionUniquePerLayer)
 		if(useImageDataset):	
 			projection_stride = CNNprojectionStride
 			self._x_feature_shape = None
@@ -329,9 +330,12 @@ class RPIANNmodel(nn.Module):
 			target_embeddings = target_embeddings.detach()
 			y_hat = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim)
 			with pt.no_grad():
-				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+				if(self._uses_layer_specific_targets):
+					final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+				else:
+					final_target = target_embeddings
 				total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat = self._compute_total_loss(
-					y_hat, final_target, y, layer_index=final_step_index
+					y_hat, final_target, y, layer_index=final_step_index if self._uses_layer_specific_targets else None
 				)
 			loss = total_loss.detach()
 			accuracy = self.accuracyFunction(logits, y)
@@ -344,10 +348,13 @@ class RPIANNmodel(nn.Module):
 				if(x_embed_mlp is not x_embed_raw and x_embed_mlp is not None):
 					x_embed_mlp = x_embed_mlp.requires_grad_()
 			target_embeddings = target_embeddings.detach()
-			final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+			if(self._uses_layer_specific_targets):
+				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+			else:
+				final_target = target_embeddings
 			y_hat = self.iterate_prediction(x_embed_raw, x_embed_mlp)
 			total_loss, logits, _, _, activated_y_hat = self._compute_total_loss(
-				y_hat, final_target, y, layer_index=final_step_index
+				y_hat, final_target, y, layer_index=final_step_index if self._uses_layer_specific_targets else None
 			)
 			accuracy = self.accuracyFunction(logits, y)
 			self.last_y_hat = activated_y_hat.detach()
@@ -406,17 +413,24 @@ class RPIANNmodel(nn.Module):
 			y_hat_state = self._zero_y_hat_like(reference_embed)
 		else:
 			y_hat_state = reference_embed
+		shared_target = None if self._uses_layer_specific_targets else target_embeddings
 		if(self.use_recursive_layers):
 			for step in range(self.recursion_steps):
 				layer = self._resolve_recursive_layer_for_step(step)
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				layer_target = self._target_embedding_for_layer(target_embeddings, step)
+				if(shared_target is None):
+					layer_target = self._target_embedding_for_layer(target_embeddings, step)
+				else:
+					layer_target = shared_target
 				update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
 				y_hat_state = self._applyResidual(y_hat_state, update)
 		else:
 			for step, layer in enumerate(self.nonrecursive_layers):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				layer_target = self._target_embedding_for_layer(target_embeddings, step)
+				if(shared_target is None):
+					layer_target = self._target_embedding_for_layer(target_embeddings, step)
+				else:
+					layer_target = shared_target
 				update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
 				y_hat_state = self._applyResidual(y_hat_state, update)
 
@@ -425,7 +439,11 @@ class RPIANNmodel(nn.Module):
 	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
 		opt = self._resolve_local_optimizer(optim, index)
 		y_hat = self._local_step_forward(base, x_embed, layer_ref, index=index)
-		total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y, layer_index=index)
+		if(self._uses_layer_specific_targets):
+			layer_index = index
+		else:
+			layer_index = None
+		total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y, layer_index=layer_index)
 		opt.zero_grad()
 		total_loss.backward()
 		opt.step()
@@ -489,6 +507,13 @@ class RPIANNmodel(nn.Module):
 
 	def project_to_classes(self, y_hat, layer_index=None):
 		# Using the frozen target projection weights as a random classifier head.
+		if(not self._uses_layer_specific_targets):
+			if(self.use_target_exemplar_projection):
+				weight = self.target_projection_weight_matrix
+			else:
+				weight = self._extract_projection_weight(self.target_projection)
+			return pt.matmul(y_hat, weight)
+
 		layer_idx = self._resolve_projection_layer_index(layer_index)
 		if(self.use_target_exemplar_projection):
 			weight_stack = getattr(self, "target_projection_weight_stack", None)
@@ -560,7 +585,7 @@ class RPIANNmodel(nn.Module):
 			layer_embeddings = []
 			for module in self.target_projection_layers:
 				layer_embedding = self._project_exemplar_images(exemplar_images, module=module)
-				layer_embeddings.append(layer_embedding.unsqueeze(0))
+				layer_embeddings.append(layer_embedding)
 		else:
 			y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
 			layer_embeddings = []
@@ -568,10 +593,14 @@ class RPIANNmodel(nn.Module):
 				layer_embedding = module(y_one_hot)
 				layer_embedding = self.target_projection_activation(layer_embedding)
 				layer_embedding = self.target_projection_activation_tanh(layer_embedding)
-				layer_embeddings.append(layer_embedding.unsqueeze(0))
-		target_embeddings = pt.cat(layer_embeddings, dim=0)
-		if not self.target_projection_unique_per_layer:
-			target_embeddings = target_embeddings.expand(self.recursion_steps, -1, -1)
+				layer_embeddings.append(layer_embedding)
+
+		if(self.target_projection_unique_per_layer):
+			target_embeddings = pt.stack(layer_embeddings, dim=0)
+		else:
+			if not layer_embeddings:
+				raise ValueError("encode_targets produced no target embeddings.")
+			target_embeddings = layer_embeddings[-1]
 		return target_embeddings
 	
 	def encode_inputs(self, x):
