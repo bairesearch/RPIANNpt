@@ -327,12 +327,10 @@ class RPIANNmodel(nn.Module):
 				x_embed_raw = x_embed_raw.detach()
 				x_embed_mlp = x_embed_mlp.detach() if x_embed_mlp is not None else None
 			target_embeddings = target_embeddings.detach()
-			y_hat = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim)
+			y_hat = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
 			with pt.no_grad():
 				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-				total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat = self._compute_total_loss(
-					y_hat, final_target, y, layer_index=final_step_index
-				)
+				total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat = self._compute_total_loss(y_hat, final_target, y, layer_index=final_step_index)
 			loss = total_loss.detach()
 			accuracy = self.accuracyFunction(logits, y)
 			self.last_y_hat = activated_y_hat.detach()
@@ -345,10 +343,8 @@ class RPIANNmodel(nn.Module):
 					x_embed_mlp = x_embed_mlp.requires_grad_()
 			target_embeddings = target_embeddings.detach()
 			final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-			y_hat = self.iterate_prediction(x_embed_raw, x_embed_mlp)
-			total_loss, logits, _, _, activated_y_hat = self._compute_total_loss(
-				y_hat, final_target, y, layer_index=final_step_index
-			)
+			y_hat = self.iterate_prediction(x_embed_raw, x_embed_mlp, train_final_only=trainOrTest and trainFinalIterationOnly)
+			total_loss, logits, _, _, activated_y_hat = self._compute_total_loss(y_hat, final_target, y, layer_index=final_step_index)
 			accuracy = self.accuracyFunction(logits, y)
 			self.last_y_hat = activated_y_hat.detach()
 			self.last_logits = logits.detach()
@@ -398,7 +394,7 @@ class RPIANNmodel(nn.Module):
 			raise ValueError("Recursive layer schedule references a feed-forward layer, but no recursive feed-forward layer is configured.")
 		raise ValueError(f"Unsupported recursive layer type '{layer_type}'.")
 
-	def _train_recursive_locally(self, x_embed_raw, x_embed_mlp, target_embeddings, y, optim):
+	def _train_recursive_locally(self, x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=False):
 		reference_embed = x_embed_mlp
 		if(reference_embed is None):
 			reference_embed = x_embed_raw
@@ -406,20 +402,35 @@ class RPIANNmodel(nn.Module):
 			y_hat_state = self._zero_y_hat_like(reference_embed)
 		else:
 			y_hat_state = reference_embed
+		update = None
 		if(self.use_recursive_layers):
+			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
 				layer = self._resolve_recursive_layer_for_step(step)
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				layer_target = self._target_embedding_for_layer(target_embeddings, step)
-				update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				if(train_final_only and step != final_step_index):
+					with pt.no_grad():
+						update = self._local_step_forward(y_hat_state, x_for_layer, layer_ref=layer, index=step)
+				else:
+					layer_target = self._target_embedding_for_layer(target_embeddings, step)
+					update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
 				y_hat_state = self._applyResidual(y_hat_state, update)
 		else:
+			if(self.nonrecursive_layers is None or len(self.nonrecursive_layers) == 0):
+				raise ValueError("Non-recursive training requested, but no non-recursive layers are configured.")
+			final_step_index = len(self.nonrecursive_layers) - 1
 			for step, layer in enumerate(self.nonrecursive_layers):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				layer_target = self._target_embedding_for_layer(target_embeddings, step)
-				update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				if(train_final_only and step != final_step_index):
+					with pt.no_grad():
+						update = self._local_step_forward(y_hat_state, x_for_layer, layer_ref=layer, index=step)
+				else:
+					layer_target = self._target_embedding_for_layer(target_embeddings, step)
+					update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
 				y_hat_state = self._applyResidual(y_hat_state, update)
 
+		if(update is None):
+			update = y_hat_state
 		return update
 
 	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
@@ -450,7 +461,7 @@ class RPIANNmodel(nn.Module):
 		out = layer_ref(base, x_embed)
 		return out
 	
-	def iterate_prediction(self, x_embed_raw, x_embed_mlp=None):
+	def iterate_prediction(self, x_embed_raw, x_embed_mlp=None, train_final_only=False):
 		reference_embed = x_embed_mlp
 		if(reference_embed is None):
 			reference_embed = x_embed_raw
@@ -459,15 +470,27 @@ class RPIANNmodel(nn.Module):
 		else:
 			y_hat = reference_embed
 		if(self.use_recursive_layers):
+			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
 				layer = self._resolve_recursive_layer_for_step(step)
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				update = layer(y_hat, x_for_layer)
+				if(train_final_only and step != final_step_index):
+					with pt.no_grad():
+						update = layer(y_hat, x_for_layer)
+				else:
+					update = layer(y_hat, x_for_layer)
 				y_hat = self._applyResidual(y_hat, update)
 		else:
-			for layer in self.nonrecursive_layers:
+			if(self.nonrecursive_layers is None or len(self.nonrecursive_layers) == 0):
+				raise ValueError("Non-recursive prediction requested, but no non-recursive layers are configured.")
+			final_step_index = len(self.nonrecursive_layers) - 1
+			for step, layer in enumerate(self.nonrecursive_layers):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
-				update = layer(y_hat, x_for_layer)
+				if(train_final_only and step != final_step_index):
+					with pt.no_grad():
+						update = layer(y_hat, x_for_layer)
+				else:
+					update = layer(y_hat, x_for_layer)
 				y_hat = self._applyResidual(y_hat, update)
 		return y_hat
 	

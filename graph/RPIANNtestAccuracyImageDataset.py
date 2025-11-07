@@ -19,33 +19,33 @@ group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "number
 	
 # Optional long descriptions shown in the right-side key
 group_descriptions = [
-	#"convlay=1 mlplay=1 classLayLoss concatInp+residInp",
-	#"convlay=1 mlplay=1 concatInp+residInp",
-	#"convlay=1 mlplay=9 noOutProjAct sublay=2 reclay concatInp+residInp",
-	#"convlay=1 mlplay=1 noOutProjAct sublay=2 concatInp+residInp",
-	#"convlay=1 mlplay=9 noOutProjAct reclay",
-	#"convlay=1 mlplay=9 noOutProjAct",
-	#"convlay=1 mlplay=1 noOutProjAct",
+	#"inprojlay=1 mlplay=1 classLayLoss concatInp+residInp",
+	#"inprojlay=1 mlplay=1 concatInp+residInp",
+	#"inprojlay=1 mlplay=9 noOutProjAct sublay=2 reclay concatInp+residInp",
+	#"inprojlay=1 mlplay=1 noOutProjAct sublay=2 concatInp+residInp",
+	#"inprojlay=1 mlplay=9 noOutProjAct reclay",
+	#"inprojlay=1 mlplay=9 noOutProjAct",
+	#"inprojlay=1 mlplay=1 noOutProjAct",
 	
-	#"convlay=1 mlplay=9 inp+outProjActTanh reclay",
-	#"convlay=1 mlplay=9 inp+outProjActTanh",
-	#"convlay=1 mlplay=1 inp+outProjActTanh",
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp reclay",
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp",
-	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh reclay",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh",
+	#"inprojlay=1 mlplay=1 inp+outProjActTanh",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp reclay",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp",
+	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp",
 	
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately+subLayerFirstSparse",
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstSparse",
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately",
-	#"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately+subLayerFirstSparse",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstSparse",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2",
 	
-	"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero",
-	"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop",
-	"convlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay",
-	"convlay=1 mlplay=1 inp+outProjActTanh concatInp",
+	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero",
+	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop",
+	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay",
+	"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp",
 	
-	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero",
-	#"convlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero repeatTrainLoopX9",
+	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero",
+	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero repeatTrainLoopX9",
 ]
 
 y_values_lists = [

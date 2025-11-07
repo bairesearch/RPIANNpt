@@ -93,3 +93,8 @@ Please create option targetProjectionUniquePerLayer = True - create a separate t
 independent useRPICNN and useRPIANN (Codex IDE GPT5Codex prompt):
 
 Please upgrade useRPICNN=True to create independent CNNActionLayers (numberOfConvlayers) and ActionLayers (numberOfFFLayers), instead of just creating just CNNActionLayers. useRPICNN=False still creates the same number of ActionLayers (numberOfLayers).
+
+---
+trainFinalIterationOnly (Codex IDE GPT5Codex prompt):
+
+Please implement option trainFinalIterationOnly=True; where only the final hidden layer (or iteration if useRecursiveLayers=True) is trained.

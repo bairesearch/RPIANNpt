@@ -10,7 +10,7 @@ graphedDatasets = [False, False, True, True, True, True, True, True, True, True,
 y1_values = [95.82, 91.59, 62.86, 70.17, 90.15, 58.13, 91.41, 61.23, 85.54, 85.77, 92.14, 66.85, 0.0, 0.0, 95.45]		#ANN full backprop (from AEANNpt codebase)
 y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 85.78, 65.72, 0.0, 0.0, 90.90]		#RPIANN useClassificationLayerLoss=True + inputProjectionActivationFunction=False
 #y1_values = [95.82, 91.67, 64.95, 70.11, 89.39, 58.40, 93.36, 62.56, 83.97, 85.63, 92.47, 65.91, 71.73, 100.0, 95.45]		#ANN full backprop (from AEANNpt codebase)
-#y2_values = [0.0, 0.0, 61.56, 70.09, 87.46, 54.10, 91.80, 60.99, 87.05, 83.47, 76.09, 64.48, 48.88, 100.0, 82.81]		#RPIANN
+#y2_values = [0.0, 0.0, 61.56, 70.09, 87.46, 54.10, 91.80, 60.99, 87.05, 83.47, 76.09, 64.48, 48.88, 100.0, 82.81]		#RPIANN [implied; inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True]
 
 #y1_values = [0.0, 0.0, 61.88, 70.22, 90.69, 51.25, 96.48, 58.59, 87.34, 84.35, 88.57, , , ]	#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False  with full backprop
 #y2_values = [0.0, 0.0, 62.26, 70.19, 89.68, 44.37, 92.58, 59.12, 88.66, 84.93, 87.12, 62.11, 90.99]		#RPIANN useClassificationLayerLoss=True + hiddenLayerSizeHigh=False + numberOfSublayers=2 + subLayerFirstNotTrained=False 
@@ -40,6 +40,7 @@ y2_values = [0.0, 0.0, 61.50, 70.19, 88.54, 55.62, 100.00, 60.68, 88.50, 84.27, 
 #y2_values = [0.0, 0.0, 51.01, 70.18, 87.09, 53.75, 78.52, 54.13, 89.11, 84.40, , , ]		#RPIANN layersFeedConcatInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True
 #y2_values = [0.0, 0.0, 58.29, 70.15, 88.47, 54.37, 95.12, 54.12, 89.15, 75.04, , , ]		#RPIANN layersFeedConcatInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True + useRecursiveLayers=False
 #y2_values = [0.0, 0.0, 52.54, 70.19, 87.71, 54.37, 94.73, 54.13, 89.26, 80.82, , , ]		#RPIANN layersFeedConcatInput=False + layerScale=1.0 + inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True + numberOfLayers=1 (ie lay=1) 
+#y2_values = [0.0, 51.21, 63.73, 70.19, 87.08, 64.71, 89.65, 89.11, 84.52, 74.72, 59.55, 50.81, 92.33, 92.19]		#RPIANN + useRecursiveLayers=False + targetProjectionUniquePerLayer [implied; inputProjectionActivationFunctionTanh=True+targetProjectionActivationFunctionTanh=True]
 
 
 group_labels = ["CIFAR-10 Resnet-18", "CIFAR-10 Conv-9", "tabular-benchmark", "blog-feedback", "titanic", "red-wine", "breast-cancer-wisconsin", "diabetes-readmission", "banking-marketing", "adult_income_dataset", "covertype", "higgs", "topquark", "iris", "new-thyroid"]

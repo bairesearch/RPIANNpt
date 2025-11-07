@@ -32,6 +32,7 @@ layerScale = 0.25	#default: 0.25	#orig: 0.25	#could be made dependent on layersF
 initialiseYhatZero = False
 if(layersFeedConcatInput):
 	initialiseYhatZero = True	#default: True	#orig: False
+trainFinalIterationOnly = False	#default: False	#orig: False
 
 #FF parameters:
 numberOfLayersLow = False	#default: False	#orig: False	#use 1 FF layer

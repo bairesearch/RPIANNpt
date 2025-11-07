@@ -77,7 +77,7 @@ numberOfConvlayers = 1
 * Recursive Transformer (https://github.com/bairesearch/TSBNLPpt)
 * Large Untrained Network (https://github.com/bairesearch/LUANNpt)
 * Local Connectome (https://github.com/bairesearch/LocalConnectome)
-* Excitatory Inhibitory Summation Activated Neuronal Input sparse network (https://github.com/bairesearch/EISANIpt)
+* Excitatory Inhibitory Summation Activated Neuronal Input network (https://github.com/bairesearch/EISANIpt)
 * Li, Q., Teh, Y. W., & Pascanu, R. (2025). NoProp: Training Neural Networks without Back-propagation or Forward-propagation. arXiv preprint arXiv:2503.24322.
 * Wang, G., Li, J., Sun, Y., Chen, X., Liu, C., Wu, Y., ... & Yadkori, Y. A. (2025). Hierarchical Reasoning Model. arXiv preprint arXiv:2506.21734.
 * Jolicoeur-Martineau, A. (2025). Less is More: Recursive Reasoning with Tiny Networks. arXiv preprint arXiv:2510.04871.
