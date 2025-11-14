@@ -94,6 +94,9 @@ class RPIANNmodel(nn.Module):
 					self._y_feature_shape = self._determine_cnn_feature_shape(config, projection_stride)
 					self._x_feature_size = self._feature_size(self._x_feature_shape)
 					self._y_feature_size = self._feature_size(self._y_feature_shape)
+				else:
+					self._x_feature_shape = tuple(config.inputImageShape)
+					self._x_feature_size = self._feature_size(self._x_feature_shape)
 			else:
 				self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
 				self._initialise_random_linear(self.input_projection)
@@ -205,14 +208,14 @@ class RPIANNmodel(nn.Module):
 				raise ValueError(f"Configured number of layers ({self.recursion_steps}) does not match instantiated layers ({len(layer_modules)}).")
 			self.nonrecursive_layers = nn.ModuleList(layer_modules)
 
-		if(self.using_rpi_cnn):
+		if(useImageDataset):
 			x_feature_size = self._x_feature_size
-			if(x_feature_size is None):
-				x_feature_size = self.embedding_dim
-			if(self.config.numberOfFFLayers > 0 and x_feature_size != self.embedding_dim):
-				self.mlp_input_adapter = nn.Linear(x_feature_size, self.embedding_dim, bias=False)
-				self._initialise_random_linear(self.mlp_input_adapter)
-				self.mlp_input_adapter.weight.requires_grad_(False)
+			target_feature_size = self._y_feature_size
+			if(x_feature_size is not None and target_feature_size is not None):
+				if(self.config.numberOfFFLayers > 0 and x_feature_size != target_feature_size):
+					self.mlp_input_adapter = nn.Linear(x_feature_size, target_feature_size, bias=False)
+					self._initialise_random_linear(self.mlp_input_adapter)
+					self.mlp_input_adapter.weight.requires_grad_(False)
 		if(useClassificationLayerLoss):
 			self.embedding_loss_weight = 0.1
 
