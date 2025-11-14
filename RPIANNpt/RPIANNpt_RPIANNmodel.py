@@ -51,6 +51,9 @@ class RPIANNmodel(nn.Module):
 	def __init__(self, config):
 		super().__init__()
 		self.config = config
+		self.train_classification_layer = bool(useClassificationLayerLoss and trainClassificationLayer)
+		if(trainClassificationLayer and not useClassificationLayerLoss):
+			print("Warning: trainClassificationLayer=True has no effect when useClassificationLayerLoss=False.")
 
 		# Interpret the existing hidden layer size as the shared embedding dimensionality.
 		self.embedding_dim = config.hiddenLayerSize
@@ -155,8 +158,12 @@ class RPIANNmodel(nn.Module):
 					class_embeddings = self._project_exemplar_images(self.class_exemplar_images, module=module)
 					weight_matrices.append(class_embeddings.transpose(0, 1).contiguous())
 				weight_stack = pt.stack(weight_matrices, dim=0)
-			self.register_buffer("target_projection_weight_stack", weight_stack)
-			self.register_buffer("target_projection_weight_matrix", weight_stack[-1].clone())
+			if(self.train_classification_layer):
+				self.target_projection_weight_stack = nn.Parameter(weight_stack)
+				self.target_projection_weight_matrix = None
+			else:
+				self.register_buffer("target_projection_weight_stack", weight_stack)
+				self.register_buffer("target_projection_weight_matrix", weight_stack[-1].clone())
 		else:
 			self.target_projection_weight_stack = None
 			self.target_projection_weight_matrix = None
@@ -227,7 +234,7 @@ class RPIANNmodel(nn.Module):
 	def _build_linear_target_projection(self, in_features):
 		linear_module = nn.Linear(in_features, self.embedding_dim, bias=False)
 		self._initialise_random_linear(linear_module)
-		linear_module.weight.requires_grad_(False)
+		linear_module.weight.requires_grad_(self.train_classification_layer)
 		assert not self.using_target_image_projection
 		if(targetProjectionSparse):
 			self._apply_target_projection_sparsity(linear_module)

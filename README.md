@@ -48,6 +48,7 @@ numberOfSublayers = 1 (sublayers per layer)
 hiddenLayerSizeHigh = True (units*4)
 inputProjectionActivationFunction = False
 useImageDataset = False
+batchSize = 64
 ```
 
 ## RPIANN vs Backprop performance (embedding layer loss)
@@ -68,6 +69,7 @@ initialiseYhatZero = True
 useImageDataset = True
 useCNNlayers = True
 numberOfConvlayers = 1
+batchSize = 1024
 ```
 
 

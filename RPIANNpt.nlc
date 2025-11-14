@@ -98,3 +98,18 @@ Please upgrade useRPICNN=True to create independent CNNActionLayers (numberOfCon
 trainFinalIterationOnly (Codex IDE GPT5Codex prompt):
 
 Please implement option trainFinalIterationOnly=True; where only the final hidden layer (or iteration if useRecursiveLayers=True) is trained.
+
+---
+debugPrintConcatWeights (Codex IDE GPT5Codex prompt):
+
+... please add option debugPrintConcatWeights=True to print (using useLovelyTensors=True);
+a) the yHat weights of layersFeedConcatInput, and;
+b) the xEmbed weights of layersFeedConcatInput for each batch.
+
+Implementation: When debugPrintConcatWeights=True, complete my pseudo code in the #TODO section of _ActionLayerBase:forward().
+
+---
+trainClassificationLayer (Codex IDE GPT5Codex prompt):
+
+Please implement option trainClassificationLayer=True to enable training of classification layer when useClassificationLayerLoss=True (classification layer weights are modified based on backprop gradients).
+

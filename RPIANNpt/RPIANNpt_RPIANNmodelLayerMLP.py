@@ -51,6 +51,8 @@ class SeparateStreamsFirstSublayer(nn.Module):
 class _ActionLayerBase(nn.Module):
 	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__()
+		self.embedding_dim = embedding_dim
+		self._first_layer = None
 		if(use_activation):
 			activation_module = nn.ReLU()
 		else:
@@ -65,6 +67,7 @@ class _ActionLayerBase(nn.Module):
 				first_layer,
 				activation_module,
 			)
+			self._first_layer = first_layer
 		elif(numberOfSublayers == 2):
 			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
 			if(layersFeedConcatInput):
@@ -85,6 +88,7 @@ class _ActionLayerBase(nn.Module):
 				second_layer,
 				activation_module
 			)
+			self._first_layer = first_layer
 		else:
 			printe("invalid number numberOfSublayers")
 		self.action_scale = action_scale
@@ -128,6 +132,8 @@ class _ActionLayerBase(nn.Module):
 	def forward(self, y_hat, x_embed):
 		if(layersFeedConcatInput):
 			combined = pt.cat([x_embed, y_hat], dim=-1)
+			if(debugPrintConcatWeights):
+				self._debug_print_concat_weights()
 		else:
 			combined = y_hat
 		raw_update = self.action(combined)
@@ -136,6 +142,30 @@ class _ActionLayerBase(nn.Module):
 		update = raw_update * self.action_scale	# Limit the magnitude of the proposed update so the recursion remains stable
 		return update
 
+	def _debug_print_concat_weights(self):
+		first_layer = self._first_layer
+		if(first_layer is None):
+			return
+		x_weights, y_weights = self._get_concat_weight_sections(first_layer)
+		if(x_weights is not None):
+			first_layer.x_embed_section = x_weights
+			print("self.action.firstLayer.x_embed_section = ", first_layer.x_embed_section)
+		if(y_weights is not None):
+			first_layer.y_hat_section = y_weights
+			print("self.action.firstLayer.y_hat_section = ", first_layer.y_hat_section)
+
+	def _get_concat_weight_sections(self, first_layer):
+		if(isinstance(first_layer, nn.Linear)):
+			expected_features = self.embedding_dim * 2
+			if(first_layer.weight.shape[1] < expected_features):
+				return None, None
+			x_weights = first_layer.weight[:, :self.embedding_dim]
+			y_weights = first_layer.weight[:, self.embedding_dim:expected_features]
+			return x_weights, y_weights
+		if(isinstance(first_layer, SeparateStreamsFirstSublayer)):
+			return first_layer.x_linear.weight, first_layer.y_linear.weight
+		return None, None
+
 class RecursiveActionLayer(_ActionLayerBase):
 	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__(embedding_dim, action_scale, use_activation)
@@ -143,4 +173,3 @@ class RecursiveActionLayer(_ActionLayerBase):
 class NonRecursiveActionLayer(_ActionLayerBase):
 	def __init__(self, embedding_dim, action_scale, use_activation=True):
 		super().__init__(embedding_dim, action_scale, use_activation)
-

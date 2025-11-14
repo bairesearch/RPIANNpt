@@ -42,7 +42,7 @@ saveModelTrainContinuous = True
 useCloudExecution = False	#jupyter notebook does not support long cmd output
 if(useCloudExecution):
 	relativeFolderLocations = True
-	debugPrintGPUusage = True
+	debugPrintGPUusage = False
 else:
 	relativeFolderLocations = False
 	debugPrintGPUusage = False

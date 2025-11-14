@@ -19,10 +19,12 @@ RPIANNpt globalDefs
 
 #debug parameters:
 printRPIANNmodelProperties = True
+debugPrintConcatWeights = False	#requires useLovelyTensors
 
 #backprop parameters:
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
 useClassificationLayerLoss = False #default: False	#orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
+trainClassificationLayer = False	#default: False	#orig: False	#requires useClassificationLayerLoss
 
 #recursion parameters:
 useRecursiveLayers = True		#default: True	#orig: True

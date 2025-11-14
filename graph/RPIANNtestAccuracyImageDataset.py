@@ -8,14 +8,14 @@ def subset(arr, subsetMask):
 showXaxisUniform = True
 
 # groups to plot
-graphedDatasets = [True, True, True, True]
+graphedDatasets = [True, True, True, True, True]
 
 x_values = [512, 2048, 8192]
 if(showXaxisUniform):
 	x_pos = np.arange(len(x_values))
 
 # One label per group (these are also the legend keys lines)
-group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "numberOfLayers=1r9 useRecursiveLayers", "numberOfLayers=1"]
+group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "numberOfLayers=1r9", "numberOfLayers=1r9 trainLocal=False", "numberOfLayers=1"]
 	
 # Optional long descriptions shown in the right-side key
 group_descriptions = [
@@ -42,10 +42,16 @@ group_descriptions = [
 	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero",
 	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop",
 	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay",
+	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay trainBackprop",
 	"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp",
 	
 	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero",
 	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero repeatTrainLoopX9",
+	
+	#"inprojlay=1 mlplay=3 inp+outProjActTanh concatInp initialiseYhatZero reclay",
+	#"inprojlay=1 mlplay=18 inp+outProjActTanh concatInp initialiseYhatZero reclay",
+	
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay trainBackprop classLayLoss classLayTrain",
 ]
 
 y_values_lists = [
@@ -69,13 +75,19 @@ y_values_lists = [
 	#[0.3497, 0.4690, 0.5262],
 	#[0.3362, 0.4597, 0.5358],
 	
-	[0.4079, 0.4224, 0.4711],	#replication1 @8192h: 0.5062 #replication2 @8192h: 0.4955
-	[0.4045, 0.4765, 0.5185],	#replication1 @8192h: 0.5222
-	[0.3110, 0.4590, 0.5306],	#replication1 @8192h: 0.5031 #replication2 @8192h: 0.5351 #replication3 @8192h: 0.5328
+	[0.4079, 0.4224, 0.4711],	#replications @8192h: 0.5062, 0.4955
+	[0.4045, 0.4765, 0.5185],	#replications @8192h: 0.5222
+	[0.3110, 0.4590, 0.5306],	#replications @8192h: 0.5031, 0.5351, 0.5328, 0.4980, 0.5067, 0.5130, 0.5062, 0.5139, 0.5043, 0.5322, 0.5003, 0.5045, 0.5031
+	[0.3751, 0.4617, 0.5077],	#replications @8192h: 0.4200, 0.5021
 	[0.3298, 0.3616, 0.5038],
 	
 	#[0.3088, 0.4285, 0.4939],
-	#[0.2416, 0.4317, 0.5208],
+	#[0.2416, 0.4317, 0.5208],	#replication @8192h: 0.5174
+	
+	#[0.3148, 0.4518, 0.5122],	#replication: [0.2934, 0.4339, 0.4061]
+	#[0.2108, 0.4510, 0.5254],	#replication: [0.3178, 0.4651, 0.5227] 
+	
+	#[0.4056, 0.5765, 0.6346]
 ]
 
 # Sanity checks

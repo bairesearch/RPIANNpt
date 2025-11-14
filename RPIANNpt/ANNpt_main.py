@@ -33,10 +33,11 @@ import torch
 from tqdm.auto import tqdm
 from torch import optim
 from torch.optim.lr_scheduler import StepLR, LambdaLR, SequentialLR
-import GPUtil
 import time
 
 from ANNpt_globalDefs import *
+if(debugPrintGPUusage):
+	import GPUtil
 
 if(useAlgorithmVICRegANN):
 	import VICRegANNpt_VICRegANN as ANNpt_algorithm
@@ -194,33 +195,34 @@ def processDataset(trainOrTest, dataset, model):
 				loop = tqdm(loader, leave=True)
 				startTime = time.time()
 				for batchIndex, batch in enumerate(loop):
-					if(debugPrintGPUusage):
-						if batchIndex % 100 == 0:
-							print_gpu_utilization()
-					
-					if(debugOnlyPrintStreamedWikiArticleTitles):
-						continue
-						
-					if(trainOrTest):
-						loss, accuracy = trainBatch(batchIndex, batch, model, optim, l, fieldTypeList)
-					else:
-						loss, accuracy = testBatch(batchIndex, batch, model, l, fieldTypeList)
+					for b in range(trainRepeatBatchX):
+						if(debugPrintGPUusage):
+							if batchIndex % 100 == 0:
+								print_gpu_utilization()
 
-					if(l == maxLayer-1):
-						totalAccuracy = totalAccuracy + accuracy
-						totalAccuracyCount += 1
-							
-					if(printAccuracyRunningAverage):
-						(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
-					
-					loop.set_description(f'Epoch {epoch}')
-					loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
-					if(useCloudExecution):
-						print_tqdm_output(epoch, start_time=startTime, batch_index=batchIndex, loss=loss, accuracy=accuracy)
-					
-					if(useAlgorithmEISANI and limitConnections):
-						if(debugLimitConnectionsSequentialSANI):
-							model.executePostTrainPrune(trainOrTest)
+						if(debugOnlyPrintStreamedWikiArticleTitles):
+							continue
+
+						if(trainOrTest):
+							loss, accuracy = trainBatch(batchIndex, batch, model, optim, l, fieldTypeList)
+						else:
+							loss, accuracy = testBatch(batchIndex, batch, model, l, fieldTypeList)
+
+						if(l == maxLayer-1):
+							totalAccuracy = totalAccuracy + accuracy
+							totalAccuracyCount += 1
+
+						if(printAccuracyRunningAverage):
+							(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
+
+						loop.set_description(f'Epoch {epoch}')
+						loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
+						if(useCloudExecution):
+							print_tqdm_output(epoch, start_time=startTime, batch_index=batchIndex, loss=loss, accuracy=accuracy)
+
+						if(useAlgorithmEISANI and limitConnections):
+							if(debugLimitConnectionsSequentialSANI):
+								model.executePostTrainPrune(trainOrTest)
 				
 			if(not debugOnlyPrintStreamedWikiArticleTitles):
 				averageAccuracy = totalAccuracy/totalAccuracyCount
