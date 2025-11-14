@@ -52,6 +52,9 @@ group_descriptions = [
 	#"inprojlay=1 mlplay=18 inp+outProjActTanh concatInp initialiseYhatZero reclay",
 	
 	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay trainBackprop classLayLoss classLayTrain",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop classLayLoss classLayTrain",
+	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay classLayLoss classLayTrain",
+	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero reclay classLayLoss classLayTrain",
 ]
 
 y_values_lists = [
@@ -88,6 +91,9 @@ y_values_lists = [
 	#[0.2108, 0.4510, 0.5254],	#replication: [0.3178, 0.4651, 0.5227] 
 	
 	#[0.4056, 0.5765, 0.6346]
+	#[0.4220, 0.5674, 0.6271]
+	#[0.4802, 0.4903, 0.5526]
+	#[0.4033, 0.5183, 0.6061]
 ]
 
 # Sanity checks

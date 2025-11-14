@@ -68,7 +68,7 @@ if(useImageDataset):
 		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 	else:
 		RPICNNuniqueWeightsPerPixel = False
-		useCNNinputProjection = True	#mandatory: True	#untrained CNN layers (image projection) - useImageProjection
+		useCNNinputProjection = True	#default: True	#untrained CNN layers (image projection) - useImageProjection
 		useCNNtargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
 		targetProjectionExemplarImage = useCNNtargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
 else:
