@@ -75,7 +75,7 @@ class _CNNActionLayerBase(nn.Module):
 	def __init__(self, y_feature_shape, number_of_conv_layers, action_scale, use_activation=True, x_feature_shape=None):
 		super().__init__()
 		if(y_feature_shape is None):
-			raise ValueError("RPICNN requires target feature shape for y_hat.")
+			raise ValueError("RPICNN requires target feature shape for Z.")
 		if(number_of_conv_layers is None or number_of_conv_layers <= 0):
 			raise ValueError("numberOfConvlayers must be a positive integer when useRPICNN is enabled.")
 		self.y_channels, self.feature_height, self.feature_width = y_feature_shape
@@ -84,7 +84,7 @@ class _CNNActionLayerBase(nn.Module):
 		else:
 			self.x_channels, x_height, x_width = x_feature_shape
 			if(x_height != self.feature_height or x_width != self.feature_width):
-				raise ValueError("RPICNN requires x_embed and y_hat to share spatial dimensions.")
+				raise ValueError("RPICNN requires x_embed and Z to share spatial dimensions.")
 		self.y_feature_size = self.y_channels * self.feature_height * self.feature_width
 		self.x_feature_size = self.x_channels * self.feature_height * self.feature_width
 		self.number_of_conv_layers = number_of_conv_layers
@@ -141,13 +141,13 @@ class _CNNActionLayerBase(nn.Module):
 	def _reshape_feature_to_flat(self, tensor):
 		return tensor.reshape(tensor.shape[0], -1)
 
-	def forward(self, y_hat, x_embed):
-		y_hat_feature = self._reshape_flat_to_feature(y_hat, self.y_feature_size, self.y_channels, "y_hat")
+	def forward(self, Z, x_embed):
+		Z_feature = self._reshape_flat_to_feature(Z, self.y_feature_size, self.y_channels, "Z")
 		if(layersFeedConcatInput):
 			x_embed_feature = self._reshape_flat_to_feature(x_embed, self.x_feature_size, self.x_channels, "x_embed")
 		else:
 			x_embed_feature = None
-		current = y_hat_feature
+		current = Z_feature
 		for conv, pool in zip(self.conv_layers, self.pool_layers):
 			if(layersFeedConcatInput):
 				combined = pt.cat([x_embed_feature, current], dim=1)

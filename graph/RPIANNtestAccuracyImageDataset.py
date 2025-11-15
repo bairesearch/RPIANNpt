@@ -19,42 +19,37 @@ group_labels = ["numberOfLayers=9", "numberOfLayers=9 trainLocal=False", "number
 	
 # Optional long descriptions shown in the right-side key
 group_descriptions = [
-	#"inprojlay=1 mlplay=1 classLayLoss concatInp+residInp",
-	#"inprojlay=1 mlplay=1 concatInp+residInp",
-	#"inprojlay=1 mlplay=9 noOutProjAct sublay=2 reclay concatInp+residInp",
-	#"inprojlay=1 mlplay=1 noOutProjAct sublay=2 concatInp+residInp",
-	#"inprojlay=1 mlplay=9 noOutProjAct reclay",
-	#"inprojlay=1 mlplay=9 noOutProjAct",
-	#"inprojlay=1 mlplay=1 noOutProjAct",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 useClassificationLayerLoss layersFeedConcatInput+layersFeedResidualInput",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 layersFeedConcatInput+layersFeedResidualInput",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 noOutProjAct numberOfSublayers=2 useRecursiveLayers layersFeedConcatInput+layersFeedResidualInput",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 noOutProjAct numberOfSublayers=2 layersFeedConcatInput+layersFeedResidualInput",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 noOutProjAct useRecursiveLayers",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 noOutProjAct",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 noOutProjAct",
 	
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh reclay",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh",
-	#"inprojlay=1 mlplay=1 inp+outProjActTanh",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp reclay",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp",
-	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh useRecursiveLayers",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 inp+targetProjectionActivationFunctionTanh",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput useRecursiveLayers",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput",
 	
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately+subLayerFirstSparse",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstSparse",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2" subLayerFirstMixXembedYhatStreamsSeparately",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay sublay=2",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers numberOfSublayers=2" subLayerFirstMixXembedYhatStreamsSeparately+subLayerFirstSparse",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers numberOfSublayers=2" subLayerFirstSparse",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers numberOfSublayers=2" subLayerFirstMixXembedYhatStreamsSeparately",
+	#"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers numberOfSublayers=2",
 	
-	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero",
-	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop",
-	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay",
-	"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay trainBackprop",
-	"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp",
+	"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero",
+	"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero trainLocal=False",
+	"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers",
+	"CNNprojectionNumlayers=1 numberOfLayers=9 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers trainLocal=False",
+	"CNNprojectionNumlayers=1 numberOfLayers=1 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput",
 	
-	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero",
-	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero repeatTrainLoopX9",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero",
+	#"CNNprojectionNumlayers=1 numberOfLayers=1 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero trainRepeatBatchX=9",
 	
-	#"inprojlay=1 mlplay=3 inp+outProjActTanh concatInp initialiseYhatZero reclay",
-	#"inprojlay=1 mlplay=18 inp+outProjActTanh concatInp initialiseYhatZero reclay",
-	
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay trainBackprop classLayLoss classLayTrain",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero trainBackprop classLayLoss classLayTrain",
-	#"inprojlay=1 mlplay=9 inp+outProjActTanh concatInp initialiseYhatZero reclay classLayLoss classLayTrain",
-	#"inprojlay=1 mlplay=1 inp+outProjActTanh concatInp initialiseYhatZero reclay classLayLoss classLayTrain",
+	#"CNNprojectionNumlayers=1 numberOfLayers=3 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers",
+	#"CNNprojectionNumlayers=1 numberOfLayers=18 inp+targetProjectionActivationFunctionTanh layersFeedConcatInput initialiseYhatZero useRecursiveLayers",
 ]
 
 y_values_lists = [
@@ -89,15 +84,10 @@ y_values_lists = [
 	
 	#[0.3148, 0.4518, 0.5122],	#replication: [0.2934, 0.4339, 0.4061]
 	#[0.2108, 0.4510, 0.5254],	#replication: [0.3178, 0.4651, 0.5227] 
-	
-	#[0.4056, 0.5765, 0.6346]
-	#[0.4220, 0.5674, 0.6271]
-	#[0.4802, 0.4903, 0.5526]
-	#[0.4033, 0.5183, 0.6061]
 ]
 
 # Sanity checks
-#assert len(group_labels) == 4
+#assert len(group_labels) == 5
 assert len(y_values_lists) == len(group_labels)
 assert all(len(y) == len(x_values) for y in y_values_lists)
 

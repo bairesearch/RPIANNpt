@@ -28,13 +28,13 @@ class SeparateStreamsFirstSublayer(nn.Module):
 	def __init__(self, embedding_dim, hidden_dim):
 		super().__init__()
 		if(hidden_dim < 2):
-			raise ValueError("hidden_dim must be at least 2 to split x_embed and y_hat streams separately.")
+			raise ValueError("hidden_dim must be at least 2 to split x_embed and Z streams separately.")
 		self.embedding_dim = embedding_dim
 		self.hidden_dim = hidden_dim
 		self.x_out_features = math.ceil(hidden_dim / 2.0)
 		self.y_out_features = hidden_dim - self.x_out_features
 		if(self.y_out_features == 0):
-			raise ValueError("hidden_dim too small to allocate features to both x_embed and y_hat streams.")
+			raise ValueError("hidden_dim too small to allocate features to both x_embed and Z streams.")
 		self.x_linear = nn.Linear(embedding_dim, self.x_out_features)
 		self.y_linear = nn.Linear(embedding_dim, self.y_out_features)
 
@@ -43,9 +43,9 @@ class SeparateStreamsFirstSublayer(nn.Module):
 		if(combined.shape[-1] != expected_features):
 			raise ValueError(f"SeparateStreamsFirstSublayer expected input feature dimension {expected_features}, received {combined.shape[-1]}.")
 		x_embed = combined[..., :self.embedding_dim]
-		y_hat = combined[..., self.embedding_dim:]
+		Z = combined[..., self.embedding_dim:]
 		x_proj = self.x_linear(x_embed)
-		y_proj = self.y_linear(y_hat)
+		y_proj = self.y_linear(Z)
 		return pt.cat([x_proj, y_proj], dim=-1)
 
 class _ActionLayerBase(nn.Module):
@@ -71,7 +71,7 @@ class _ActionLayerBase(nn.Module):
 		elif(numberOfSublayers == 2):
 			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
 			if(layersFeedConcatInput):
-				if(subLayerFirstMixXembedYhatStreamsSeparately):
+				if(subLayerFirstMixXembedZStreamsSeparately):
 					first_layer = SeparateStreamsFirstSublayer(embedding_dim, hidden_dim)
 				else:
 					first_layer = nn.Linear(embedding_dim * 2, hidden_dim)
@@ -129,13 +129,13 @@ class _ActionLayerBase(nn.Module):
 				mask[row, selected_indices] = 1.0
 			weight.mul_(mask)
 
-	def forward(self, y_hat, x_embed):
+	def forward(self, Z, x_embed):
 		if(layersFeedConcatInput):
-			combined = pt.cat([x_embed, y_hat], dim=-1)
+			combined = pt.cat([x_embed, Z], dim=-1)
 			if(debugPrintConcatWeights):
 				self._debug_print_concat_weights()
 		else:
-			combined = y_hat
+			combined = Z
 		raw_update = self.action(combined)
 		if(hiddenActivationFunctionTanh):
 			raw_update = pt.tanh(raw_update)
@@ -151,8 +151,8 @@ class _ActionLayerBase(nn.Module):
 			first_layer.x_embed_section = x_weights
 			print("self.action.firstLayer.x_embed_section = ", first_layer.x_embed_section)
 		if(y_weights is not None):
-			first_layer.y_hat_section = y_weights
-			print("self.action.firstLayer.y_hat_section = ", first_layer.y_hat_section)
+			first_layer.Z_section = y_weights
+			print("self.action.firstLayer.Z_section = ", first_layer.Z_section)
 
 	def _get_concat_weight_sections(self, first_layer):
 		if(isinstance(first_layer, nn.Linear)):

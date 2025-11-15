@@ -21,9 +21,13 @@ RPIANNpt globalDefs
 printRPIANNmodelProperties = True
 debugPrintConcatWeights = False	#requires useLovelyTensors
 
+#dataset parameters:
+useImageDataset = False 	#use CIFAR-10 dataset with CNN
+
 #backprop parameters:
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
 useClassificationLayerLoss = False #default: False	#orig: True		#if false; only use embedding layer loss calculated by reverse projection from target layer	#if true; it uses backprop calculations from target layer (albeit does not modify weights of target layer)
+useClassificationLayerLossStrict = False	#default: False	#orig: False #if false: use a combination of classification layer loss and embedding layer loss*embedding loss weight[0.1]
 trainClassificationLayer = False	#default: False	#orig: False	#requires useClassificationLayerLoss
 
 #recursion parameters:
@@ -31,9 +35,9 @@ useRecursiveLayers = True		#default: True	#orig: True
 layersFeedConcatInput = True	#default: False	#orig: True
 layersFeedResidualInput = False	#default: False	#orig: True
 layerScale = 0.25	#default: 0.25	#orig: 0.25	#could be made dependent on layersFeedConcatInput, layersFeedResidualInput, hiddenActivationFunctionTanh etc
-initialiseYhatZero = False
+initialiseZzero = False
 if(layersFeedConcatInput):
-	initialiseYhatZero = True	#default: True	#orig: False
+	initialiseZzero = True	#default: True	#orig: False
 trainFinalIterationOnly = False	#default: False	#orig: False
 
 #FF parameters:
@@ -41,18 +45,17 @@ numberOfLayersLow = False	#default: False	#orig: False	#use 1 FF layer
 
 #sublayer parameters:
 numberOfSublayers = 1	#default: 1
-subLayerFirstMixXembedYhatStreamsSeparately = False	#initialise (dependent vars)
+subLayerFirstMixXembedZStreamsSeparately = False	#initialise (dependent vars)
 subLayerFirstSparse = False	#initialise (dependent vars)
 if(numberOfSublayers > 1):
 	subLayerHiddenDimMultiplier = 2	#default: 2
 	subLayerFirstNotTrained = True	#default: True	#orig: False	#first sublayer is untrained random projection (no multilayer backprop)
 	if(layersFeedConcatInput):
-		subLayerFirstMixXembedYhatStreamsSeparately = False	#orig: False
+		subLayerFirstMixXembedZStreamsSeparately = False	#orig: False
 	subLayerFirstSparse = False	#default: False	#orig: False	#initialise first sublayer weights with sparse connectivity when untrained	#incomplete
 	subLayerFirstSparsityLevel = 0.9	#fraction of first sublayer weights zeroed when subLayerFirstSparse=True (0.0-1.0)
 	
-#dataset parameters:
-useImageDataset = False 	#use CIFAR-10 dataset with CNN
+#RPICNN parameters:
 if(useImageDataset):
 	useTabularDataset = False
 	useRPICNN = False	#orig: False	#recursive CNN layers
@@ -79,7 +82,7 @@ else:
 	targetProjectionExemplarImage = False
 
 #activation function parameters:
-inputProjectionActivationFunction = True	#default: True	#orig: False	#relu	#not necessary (removes 50% bits from input projection output), but keeps all layer inputs (x embed and y hat) in similar range (ie zero or positive)
+inputProjectionActivationFunction = True	#default: True	#orig: False	#relu	#not necessary (removes 50% bits from input projection output), but keeps all layer inputs (x embed and Z) in similar range (ie zero or positive)
 inputProjectionActivationFunctionTanh = True	#default: True	#orig: True	#tanh	#input should already be normalised from 0 to 1
 hiddenActivationFunction = True	#default: True	#orig: True	#relu
 hiddenActivationFunctionTanh = True	#default: True	#orig: True	#tanh
@@ -91,9 +94,12 @@ targetProjectionUniquePerLayer = False	#default: False	#orig: False
 targetProjectionSparse = False #default: False #orig: False	#generate a sparse instead of dense target embedding
 targetProjectionSparsityLevel = 0.9	#fraction of target projection weights zeroed when targetProjectionSparse=True (0.0-1.0)
 
-#CNN parameters:
+#hidden size parameters:
 if(useImageDataset):
 	hiddenLayerSize = 2048	#2048	#*8	#default: 2048
+
+#CNN projection parameters:
+if(useImageDataset):
 	if(useCNNinputProjection or useCNNtargetProjection):
 		useCNNprojection = True	#untrained CNN layers (input/target image projection)
 	else:
@@ -108,6 +114,9 @@ if(useImageDataset):
 	else:
 		CNNprojectionNumlayers = 1	#effective CNN projection layers (no change from input pixel space)
 		CNNprojectionStride = 1	#effective CNN stride (no change from input pixel space)
+
+#layer parameters:
+if(useImageDataset):
 	if(useRPICNN):
 		numberOfConvlayers = 6	#number RPICNN layers 	#default: 2, 4, 6	#orig: 9	#default: 6
 		numberOfFFLayers = 3	#number FF layers	#orig: 0	#default: 3

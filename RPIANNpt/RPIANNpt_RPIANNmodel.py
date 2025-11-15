@@ -221,7 +221,7 @@ class RPIANNmodel(nn.Module):
 
 		self.lossFunctionFinal = nn.CrossEntropyLoss()
 		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
-		self.last_y_hat = None
+		self.last_Z = None
 		self.last_logits = None
 
 	def _initialise_random_linear(self, module):
@@ -337,13 +337,13 @@ class RPIANNmodel(nn.Module):
 				x_embed_raw = x_embed_raw.detach()
 				x_embed_mlp = x_embed_mlp.detach() if x_embed_mlp is not None else None
 			target_embeddings = target_embeddings.detach()
-			y_hat = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
+			Z = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
 			with pt.no_grad():
 				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-				total_loss, logits, classification_loss, embedding_alignment_loss, activated_y_hat = self._compute_total_loss(y_hat, final_target, y, layer_index=final_step_index)
+				total_loss, logits, classification_loss, embedding_alignment_loss, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
 			loss = total_loss.detach()
 			accuracy = self.accuracyFunction(logits, y)
-			self.last_y_hat = activated_y_hat.detach()
+			self.last_Z = activated_Z.detach()
 			self.last_logits = logits.detach()
 			return loss, accuracy
 		else:
@@ -353,10 +353,10 @@ class RPIANNmodel(nn.Module):
 					x_embed_mlp = x_embed_mlp.requires_grad_()
 			target_embeddings = target_embeddings.detach()
 			final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-			y_hat = self.iterate_prediction(x_embed_raw, x_embed_mlp, train_final_only=trainOrTest and trainFinalIterationOnly)
-			total_loss, logits, _, _, activated_y_hat = self._compute_total_loss(y_hat, final_target, y, layer_index=final_step_index)
+			Z = self.iterate_prediction(x_embed_raw, x_embed_mlp, train_final_only=trainOrTest and trainFinalIterationOnly)
+			total_loss, logits, _, _, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
 			accuracy = self.accuracyFunction(logits, y)
-			self.last_y_hat = activated_y_hat.detach()
+			self.last_Z = activated_Z.detach()
 			self.last_logits = logits.detach()
 			return total_loss, accuracy
 
@@ -408,10 +408,10 @@ class RPIANNmodel(nn.Module):
 		reference_embed = x_embed_mlp
 		if(reference_embed is None):
 			reference_embed = x_embed_raw
-		if(initialiseYhatZero or reference_embed.shape[1] != self._y_feature_size):
-			y_hat_state = self._zero_y_hat_like(reference_embed)
+		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
+			Z_state = self._zero_Z_like(reference_embed)
 		else:
-			y_hat_state = reference_embed
+			Z_state = reference_embed
 		update = None
 		if(self.use_recursive_layers):
 			final_step_index = max(0, self.recursion_steps - 1)
@@ -420,11 +420,11 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = self._local_step_forward(y_hat_state, x_for_layer, layer_ref=layer, index=step)
+						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
 				else:
 					layer_target = self._target_embedding_for_layer(target_embeddings, step)
-					update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
-				y_hat_state = self._applyResidual(y_hat_state, update)
+					update = self._local_step(Z_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				Z_state = self._applyResidual(Z_state, update)
 		else:
 			if(self.nonrecursive_layers is None or len(self.nonrecursive_layers) == 0):
 				raise ValueError("Non-recursive training requested, but no non-recursive layers are configured.")
@@ -433,32 +433,32 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = self._local_step_forward(y_hat_state, x_for_layer, layer_ref=layer, index=step)
+						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
 				else:
 					layer_target = self._target_embedding_for_layer(target_embeddings, step)
-					update = self._local_step(y_hat_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
-				y_hat_state = self._applyResidual(y_hat_state, update)
+					update = self._local_step(Z_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				Z_state = self._applyResidual(Z_state, update)
 
 		if(update is None):
-			update = y_hat_state
+			update = Z_state
 		return update
 
 	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
 		opt = self._resolve_local_optimizer(optim, index)
-		y_hat = self._local_step_forward(base, x_embed, layer_ref, index=index)
-		total_loss, *_ = self._compute_total_loss(y_hat, target_embedding, y, layer_index=index)
+		Z = self._local_step_forward(base, x_embed, layer_ref, index=index)
+		total_loss, *_ = self._compute_total_loss(Z, target_embedding, y, layer_index=index)
 		opt.zero_grad()
 		total_loss.backward()
 		opt.step()
-		y_hat = y_hat.detach()
-		return y_hat
+		Z = Z.detach()
+		return Z
 
 	def _local_step_forward(self, base, x_embed, layer_ref=None, index=None):
 		if(self.use_recursive_layers):
-			y_hat = self._iterate_forward_recursive(base, x_embed, layer_ref=layer_ref, index=index)
+			Z = self._iterate_forward_recursive(base, x_embed, layer_ref=layer_ref, index=index)
 		else:
-			y_hat = self._iterate_forward_nonrecursive(base, x_embed, layer_ref)
-		return y_hat
+			Z = self._iterate_forward_nonrecursive(base, x_embed, layer_ref)
+		return Z
 	
 	def _iterate_forward_recursive(self, base, x_embed, layer_ref=None, index=None):
 		layer = layer_ref if layer_ref is not None else self.recursive_layer
@@ -475,10 +475,10 @@ class RPIANNmodel(nn.Module):
 		reference_embed = x_embed_mlp
 		if(reference_embed is None):
 			reference_embed = x_embed_raw
-		if(initialiseYhatZero or reference_embed.shape[1] != self._y_feature_size):
-			y_hat = self._zero_y_hat_like(reference_embed)
+		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
+			Z = self._zero_Z_like(reference_embed)
 		else:
-			y_hat = reference_embed
+			Z = reference_embed
 		if(self.use_recursive_layers):
 			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
@@ -486,10 +486,10 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = layer(y_hat, x_for_layer)
+						update = layer(Z, x_for_layer)
 				else:
-					update = layer(y_hat, x_for_layer)
-				y_hat = self._applyResidual(y_hat, update)
+					update = layer(Z, x_for_layer)
+				Z = self._applyResidual(Z, update)
 		else:
 			if(self.nonrecursive_layers is None or len(self.nonrecursive_layers) == 0):
 				raise ValueError("Non-recursive prediction requested, but no non-recursive layers are configured.")
@@ -498,11 +498,11 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = layer(y_hat, x_for_layer)
+						update = layer(Z, x_for_layer)
 				else:
-					update = layer(y_hat, x_for_layer)
-				y_hat = self._applyResidual(y_hat, update)
-		return y_hat
+					update = layer(Z, x_for_layer)
+				Z = self._applyResidual(Z, update)
+		return Z
 	
 	def _applyResidual(self, orig, update):
 		if(layersFeedResidualInput):
@@ -510,17 +510,20 @@ class RPIANNmodel(nn.Module):
 		else:
 			return update
 			
-	def _compute_total_loss(self, y_hat, target_embedding, y, layer_index=None):
-		logits = self.project_to_classes(y_hat, layer_index=layer_index)
+	def _compute_total_loss(self, Z, target_embedding, y, layer_index=None):
+		logits = self.project_to_classes(Z, layer_index=layer_index)
 		classification_loss = self.lossFunctionFinal(logits, y)
-		embedding_alignment_loss = F.mse_loss(y_hat, target_embedding)
+		embedding_alignment_loss = F.mse_loss(Z, target_embedding)
 		if(useClassificationLayerLoss):
-			total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
+			if(useClassificationLayerLossStrict):
+				total_loss = classification_loss
+			else:
+				total_loss = classification_loss + self.embedding_loss_weight * embedding_alignment_loss
 		else:
 			total_loss = embedding_alignment_loss
-		return total_loss, logits, classification_loss, embedding_alignment_loss, y_hat
+		return total_loss, logits, classification_loss, embedding_alignment_loss, Z
 
-	def project_to_classes(self, y_hat, layer_index=None):
+	def project_to_classes(self, Z, layer_index=None):
 		# Using the frozen target projection weights as a random classifier head.
 		layer_idx = self._resolve_projection_layer_index(layer_index)
 		if(self.use_target_exemplar_projection):
@@ -535,9 +538,9 @@ class RPIANNmodel(nn.Module):
 			layer_idx = min(layer_idx, len(self.target_projection_layers) - 1)
 			module = self.target_projection_layers[layer_idx]
 			weight = self._extract_projection_weight(module)
-		return pt.matmul(y_hat, weight)
+		return pt.matmul(Z, weight)
 
-	def _zero_y_hat_like(self, reference_tensor):
+	def _zero_Z_like(self, reference_tensor):
 		return reference_tensor.new_zeros((reference_tensor.shape[0], self._y_feature_size))
 
 	def _target_embedding_for_layer(self, target_embeddings, layer_index):

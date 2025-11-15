@@ -5,7 +5,7 @@ v1a (Codex IDE GPT5Codex prompt);
 
 Please upgrade RPIANNpt_RPIANNmodel to implement this specification;
 
-I have an input embedding x and a prediction embedding y_hat, all encoded in a single recursive MLP layer; the layer decides what best next action the network should take to iteratively improve the prediction embedding y_hat (with respect to the target output embedding y). For simplicity, assume a large random projection from class targets to prediction/target output embedding y_hat/y, and a large random projection from input to input embedding x.
+I have an input embedding x and a prediction embedding Z, all encoded in a single recursive MLP layer; the layer decides what best next action the network should take to iteratively improve the prediction embedding Z (with respect to the target output embedding Z_target). For simplicity, assume a large random projection from class targets to prediction/target output embedding (Z/Z_target), and a large random projection from input to input embedding x.
 
 ---
 trainLocal (Codex IDE GPT5Codex prompt):
@@ -35,9 +35,9 @@ subLayerFirstNotTrained (Codex IDE GPT5Codex prompt):
 Hi, please implement option subLayerFirstNotTrained=True (only when numberOfSublayers>1)
 
 ---
-subLayerFirstMixXembedYhatStreamsSeparately (Codex IDE GPT5Codex prompt):
+subLayerFirstMixXembedZStreamsSeparately (Codex IDE GPT5Codex prompt):
 
-Please implement option subLayerFirstMixXembedYhatStreamsSeparately=True (for case numberOfSublayers >1 and layersFeedConcatInput=True only); it feeds x_embed and y_hat input through separate weights in the first sublayer (then concats their output).
+Please implement option subLayerFirstMixXembedZStreamsSeparately=True (for case numberOfSublayers >1 and layersFeedConcatInput=True only); it feeds x_embed and Z input through separate weights in the first sublayer (then concats their output).
 
 ---
 subLayerFirstSparse (Codex IDE GPT5Codex prompt):
@@ -55,7 +55,7 @@ Please implement option useRPICNN=True (for case useImageDataset=True and useCNN
 ---
 useRPICNN (Codex IDE GPT5Codex prompt):
 
-There is no theoretical reason why the num channels for x_embed and y_hat are identical for an RPICNN architecture (for initialiseYhatZero=True).
+There is no theoretical reason why the num channels for x_embed and Z are identical for an RPICNN architecture (for initialiseZero=True).
 1. Please upgrade the useRPICNN code to support different number of channels for x_embed. 
 2. please replace _build_rpi_cnn_projection with _build_image_projection.
 3. please upgrade _build_image_projection to support configurable stride values (ie stride 1 or stride 2).
@@ -103,7 +103,7 @@ Please implement option trainFinalIterationOnly=True; where only the final hidde
 debugPrintConcatWeights (Codex IDE GPT5Codex prompt):
 
 ... please add option debugPrintConcatWeights=True to print (using useLovelyTensors=True);
-a) the yHat weights of layersFeedConcatInput, and;
+a) the Z weights of layersFeedConcatInput, and;
 b) the xEmbed weights of layersFeedConcatInput for each batch.
 
 Implementation: When debugPrintConcatWeights=True, complete my pseudo code in the #TODO section of _ActionLayerBase:forward().

@@ -35,43 +35,87 @@ python ANNpt_main.py
 
 ![RPIANNImplementation1a.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNImplementation1a.png?raw=true)
 
-## RPIANN vs Backprop performance (classification layer loss)
+## RPIANN vs ANN performance Tabular Dataset (classification layer loss)
 
 ![RPIANNVsBackpropTestAccuracy-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNVsBackpropTestAccuracy-SMALL.png?raw=true)
 
-RPIANNpt tests conducted with settings;
+RPIANN tests conducted with settings;
 ```
-useRecursiveLayers = True [independent]
+useTabularDataset = True
+useRecursiveLayers = True
+trainLocal = True
+numberOfLayers = (lay+1)
 useClassificationLayerLoss = True (uses backprop calculations from target layer loss)
-numberOfLayers = (lay+1) [independent]
+trainClassificationLayer = False
+
 numberOfSublayers = 1 (sublayers per layer)
+subLayerFirstNotTrained = True (if more than one sublayer, first is not trained)
 hiddenLayerSizeHigh = True (units*4)
 inputProjectionActivationFunction = False
-useImageDataset = False
+inputProjectionActivationFunctionTanh = False
+targetProjectionActivationFunction = True
+targetProjectionActivationFunctionTanh = False
+layersFeedConcatInput = True
+layersFeedResidualInput = True
+initialiseZzero = False
 batchSize = 64
 ```
 
-## RPIANN vs Backprop performance (embedding layer loss)
+## RPIANN performance Image Dataset (embedding layer loss)
 
 ![RPIANNtestAccuracyImageDataset-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNtestAccuracyImageDataset-SMALL.png?raw=true)
 
-RPIANNpt tests conducted with default settings;
+RPIANN tests conducted with settings;
 ```
+useImageDataset = True
+useRecursiveLayers = True or False
+trainLocal = True or False
+numberOfLayers = 9 or 1
 useClassificationLayerLoss = False (uses embedding layer loss calculated by reverse projection from target layer)
+trainClassificationLayer = False
+
 numberOfSublayers = 1 (sublayers per layer)
-subLayerFirstNotTrained = True
+subLayerFirstNotTrained = True (if more than one sublayer, first is not trained)
 hiddenLayerSizeHigh = True
 inputProjectionActivationFunction = True
+inputProjectionActivationFunctionTanh = True
 targetProjectionActivationFunction = True
+targetProjectionActivationFunctionTanh = True
 layersFeedConcatInput = True
 layersFeedResidualInput = False
-initialiseYhatZero = True
-useImageDataset = True
-useCNNlayers = True
-numberOfConvlayers = 1
+initialiseZzero = True
+useCNNinputProjection = True
+CNNprojectionNumlayers = 1
 batchSize = 1024
 ```
 
+## RPIANN performance Image Dataset (classification layer loss+train)
+
+![RPIANNtestAccuracyImageDatasetTrainClassificationLayer-SMALL.png](https://github.com/bairesearch/RPIANNpt/blob/main/graph/RPIANNtestAccuracyImageDatasetTrainClassificationLayer-SMALL.png?raw=true)
+
+RPIANN tests conducted with settings;
+```
+useImageDataset = True
+useRecursiveLayers = True or False
+trainLocal = True or False
+numberOfLayers = 9 or 1
+useClassificationLayerLoss = True (uses backprop calculations from target layer loss)
+trainClassificationLayer = True (also trains classification layer)
+
+numberOfSublayers = 1 (sublayers per layer)
+subLayerFirstNotTrained = True (if more than one sublayer, first is not trained)
+hiddenLayerSizeHigh = True
+inputProjectionActivationFunction = True
+inputProjectionActivationFunctionTanh = True
+targetProjectionActivationFunction = True
+targetProjectionActivationFunctionTanh = True
+layersFeedConcatInput = True
+layersFeedResidualInput = False
+initialiseZzero = True
+useCNNinputProjection = True
+CNNprojectionNumlayers = 1
+batchSize = 1024
+```
 
 ### Related Work
 
