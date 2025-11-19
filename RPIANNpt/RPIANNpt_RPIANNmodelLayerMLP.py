@@ -25,11 +25,12 @@ import torch.nn.functional as F
 from ANNpt_globalDefs import *
 
 class SeparateStreamsFirstSublayer(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim):
+	def __init__(self, embedding_dim, x_feature_size, hidden_dim):
 		super().__init__()
 		if(hidden_dim < 2):
 			raise ValueError("hidden_dim must be at least 2 to split x_embed and Z streams separately.")
 		self.embedding_dim = embedding_dim
+		self.x_feature_size = x_feature_size
 		self.hidden_dim = hidden_dim
 		self.x_out_features = math.ceil(hidden_dim / 2.0)
 		self.y_out_features = hidden_dim - self.x_out_features
@@ -39,19 +40,22 @@ class SeparateStreamsFirstSublayer(nn.Module):
 		self.y_linear = nn.Linear(embedding_dim, self.y_out_features)
 
 	def forward(self, combined):
-		expected_features = self.embedding_dim * 2
+		expected_features = self.x_feature_size + self.embedding_dim
 		if(combined.shape[-1] != expected_features):
 			raise ValueError(f"SeparateStreamsFirstSublayer expected input feature dimension {expected_features}, received {combined.shape[-1]}.")
-		x_embed = combined[..., :self.embedding_dim]
-		Z = combined[..., self.embedding_dim:]
+		x_embed = combined[..., :self.x_feature_size]
+		Z = combined[..., self.x_feature_size:]
 		x_proj = self.x_linear(x_embed)
 		y_proj = self.y_linear(Z)
 		return pt.cat([x_proj, y_proj], dim=-1)
 
 class _ActionLayerBase(nn.Module):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
+	def __init__(self, embedding_dim, action_scale, use_activation=True, x_feature_size=None):
 		super().__init__()
 		self.embedding_dim = embedding_dim
+		if(x_feature_size is None):
+			x_feature_size = embedding_dim
+		self.x_feature_size = x_feature_size
 		self._first_layer = None
 		if(use_activation):
 			activation_module = nn.ReLU()
@@ -60,7 +64,8 @@ class _ActionLayerBase(nn.Module):
 		if(numberOfSublayers == 1):
 			hidden_dim = embedding_dim
 			if(layersFeedConcatInput):
-				first_layer = nn.Linear(embedding_dim * 2, hidden_dim)
+				concat_features = self.x_feature_size + embedding_dim
+				first_layer = nn.Linear(concat_features, hidden_dim)
 			else:
 				first_layer = nn.Linear(embedding_dim, hidden_dim)
 			self.action = nn.Sequential(
@@ -72,9 +77,9 @@ class _ActionLayerBase(nn.Module):
 			hidden_dim = embedding_dim * subLayerHiddenDimMultiplier
 			if(layersFeedConcatInput):
 				if(subLayerFirstMixXembedZStreamsSeparately):
-					first_layer = SeparateStreamsFirstSublayer(embedding_dim, hidden_dim)
+					first_layer = SeparateStreamsFirstSublayer(embedding_dim, self.x_feature_size, hidden_dim)
 				else:
-					first_layer = nn.Linear(embedding_dim * 2, hidden_dim)
+					first_layer = nn.Linear(self.x_feature_size + embedding_dim, hidden_dim)
 			else:
 				first_layer = nn.Linear(embedding_dim, hidden_dim)
 			if(subLayerFirstNotTrained):
@@ -156,20 +161,20 @@ class _ActionLayerBase(nn.Module):
 
 	def _get_concat_weight_sections(self, first_layer):
 		if(isinstance(first_layer, nn.Linear)):
-			expected_features = self.embedding_dim * 2
+			expected_features = self.x_feature_size + self.embedding_dim
 			if(first_layer.weight.shape[1] < expected_features):
 				return None, None
-			x_weights = first_layer.weight[:, :self.embedding_dim]
-			y_weights = first_layer.weight[:, self.embedding_dim:expected_features]
+			x_weights = first_layer.weight[:, :self.x_feature_size]
+			y_weights = first_layer.weight[:, self.x_feature_size:expected_features]
 			return x_weights, y_weights
 		if(isinstance(first_layer, SeparateStreamsFirstSublayer)):
 			return first_layer.x_linear.weight, first_layer.y_linear.weight
 		return None, None
 
 class RecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
-		super().__init__(embedding_dim, action_scale, use_activation)
+	def __init__(self, embedding_dim, action_scale, use_activation=True, x_feature_size=None):
+		super().__init__(embedding_dim, action_scale, use_activation, x_feature_size=x_feature_size)
 
 class NonRecursiveActionLayer(_ActionLayerBase):
-	def __init__(self, embedding_dim, action_scale, use_activation=True):
-		super().__init__(embedding_dim, action_scale, use_activation)
+	def __init__(self, embedding_dim, action_scale, use_activation=True, x_feature_size=None):
+		super().__init__(embedding_dim, action_scale, use_activation, x_feature_size=x_feature_size)

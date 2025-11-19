@@ -66,17 +66,20 @@ if(useImageDataset):
 		else:
 			RPICNNpool = True	#default: True
 		useCNNinputProjection = False	#default: False	#untrained CNN layers (image projection) - useImageProjection	#when False, RPICNN receives raw image channels as x_embed
+		useInputProjection = useCNNinputProjection	#linear input projection is currently not supported by useRPICNN
 		useCNNtargetProjection = False	#orig: False	#required to retain target image space 
 		targetProjectionExemplarImage = useCNNtargetProjection	#default: useCNNtargetProjection	#orig: False	#required to retain target image space
 		assert not (numberOfSublayers > 1 and subLayerFirstNotTrained), "useRPICNN numberOfSublayers>1 does not currently support subLayerFirstNotTrained"
 	else:
 		RPICNNuniqueWeightsPerPixel = False
+		useInputProjection = True	#default: True	#orig: useInputProjection=useCNNinputProjection
 		useCNNinputProjection = True	#default: True	#untrained CNN layers (image projection) - useImageProjection
 		useCNNtargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
 		targetProjectionExemplarImage = useCNNtargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
 else:
 	useTabularDataset = True
 	useRPICNN = False
+	useInputProjection = True	#default: True
 	useCNNinputProjection = False
 	useCNNtargetProjection = False
 	targetProjectionExemplarImage = False
@@ -89,6 +92,16 @@ hiddenActivationFunctionTanh = True	#default: True	#orig: True	#tanh
 targetProjectionActivationFunction = hiddenActivationFunction	#default: True	#orig: True	#relu
 targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: True	#orig: False	#tanh
 targetProjectionUniquePerLayer = False	#default: False	#orig: False
+
+#projection autoencoder parameters:
+inputProjectionAutoencoder = False	#default: False	#input projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNinputProjection
+inputProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
+targetProjectionAutoencoder = False	#default: False	#target projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNtargetProjection
+targetProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
+if(inputProjectionAutoencoder or targetProjectionAutoencoder):
+	useProjectionAutoencoder = True
+else:
+	useProjectionAutoencoder = False
 
 #target embedding sparsity parameters:
 targetProjectionSparse = False #default: False #orig: False	#generate a sparse instead of dense target embedding
@@ -114,6 +127,8 @@ if(useImageDataset):
 	else:
 		CNNprojectionNumlayers = 1	#effective CNN projection layers (no change from input pixel space)
 		CNNprojectionStride = 1	#effective CNN stride (no change from input pixel space)
+else:
+	useCNNprojection = False
 
 #layer parameters:
 if(useImageDataset):

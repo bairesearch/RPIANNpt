@@ -113,3 +113,50 @@ trainClassificationLayer (Codex IDE GPT5Codex prompt):
 
 Please implement option trainClassificationLayer=True to enable training of classification layer when useClassificationLayerLoss=True (classification layer weights are modified based on backprop gradients).
 
+---
+inputProjectionAutoencoder/targetProjectionAutoencoder (Codex IDE GPT5Codex prompt):
+
+Please implement options inputProjectionAutoencoder=True and targetProjectionAutoencoder=True; when these options are enabled the input and/or target projections are trained using an autoencoder algorithm;
+
+inputProjectionAutoencoder: input->Z->input (separate matrices for each direction; forward->reverse) 
+targetProjectionAutoencoder: output->Z->output (separate matrices for each direction; forward->reverse)
+
+Please also implement options inputProjectionAutoencoderIndependent=True and targetProjectionAutoencoderIndependent=True; when these options are also enabled, each direction of the autoencoders is trained independently by holding the other direction weights constant while it is being trained. Each batch processed by RPIANN will therefore apply 2 autoencoder subtraining rounds, "forward"/"reverse" (where this naming scheme is relative to the individual autoencoders not the entire network);
+
+a) "forward" subtraining round will train the autoencoder forward matrices (of the input and/or target projections);
+- The autoencoder reverse layer is executed to obtain the activations of Z.
+- the autoencoder forward layer is then executed to obtain the predicted activations of Z_hat.
+- single layer backprop is then applied to train the forward layer weights (using the error of Z_hat/Z).
+
+b) "reverse" subtraining round will train the autoencoder reverse matrices (of the input and/or target projections);
+- The autoencoder forward layer is executed to obtain the activations of Z.
+- the autoencoder reverse layer is then executed to obtain the x_hat or y_hat values.
+- single layer backprop is then applied to train the reverse layer weights (using the error of x_hat/x or y_hat/y).
+
+When inputProjectionAutoencoderIndependent=False and targetProjectionAutoencoderIndependent=False, each autoencoder is trained using 2 layer backprop.
+
+	Thank you for performing this upgrade. Before I test it myself I want you to verify the requirements;
+
+	a) when inputProjectionAutoencoder=False and targetProjectionAutoencoder=False, RPIANN behaves exactly like it did before the upgrade; I.e. 
+	i) if trainClassificationLayer=False, both the input and target projections will be untrained. 
+	ii) if trainClassificationLayer=True it will still train the target layer.
+
+	b) when inputProjectionAutoencoder=True and targetProjectionAutoencoder=True and inputProjectionAutoencoderIndependent=False and targetProjectionAutoencoderIndependent=False, the input and target autoencoders (both forward and reverse direction matrices) are trained using 2 layer backprop (standard autoencoder algorithm).
+
+	c) when inputProjectionAutoencoder=True and targetProjectionAutoencoder=True and inputProjectionAutoencoderIndependent=True and targetProjectionAutoencoderIndependent=True, the input and target autoencoder forward and reverse direction matrices are trained separately using the single layer backprop autoencoder training method specified in the requirements.
+
+	If there have been any changes to the expected implementation, please notify me of these changes.
+
+---
+useInputProjection (Codex IDE GPT5Codex prompt):
+
+Please add bool option useInputProjection. If useInputProjection=True and useImageDataset=True and useCNNinputProjection=False, then always create and execute a linear input projection (currently none is being used). If useInputProjection=False, then never create and execute a linear input projection (even when useImageDataset=False).
+
+Make option inputProjectionAutoencoder=True dependent on useInputProjection=True and useCNNinputProjection=False.
+
+Make option targetProjectionAutoencoder=True explicitly dependent on useCNNtargetProjection=False.
+
+---
+support x_embed.shape != Z.shape (Codex IDE GPT5Codex prompt):
+
+Please upgrade all cases (especially case use_linear_input_projection=True) to support x_embed.shape != Z.shape, and remove the mlp_input_adapter code completely (as this is no longer requried). If you identify a problem with this upgrade please let me know first.

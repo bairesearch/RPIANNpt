@@ -25,8 +25,13 @@ import torch.nn.functional as F
 from ANNpt_globalDefs import *
 from torchmetrics.classification import Accuracy
 from RPIANNpt_RPIANNmodelLayerMLP import NonRecursiveActionLayer, RecursiveActionLayer
+#if(useCNNprojection):
+import RPIANNpt_RPIANNmodelCNNprojection
 if(useRPICNN):
 	from RPIANNpt_RPIANNmodelLayerCNN import NonRecursiveCNNActionLayer, RecursiveCNNActionLayer
+if(useProjectionAutoencoder):
+	import RPIANNpt_RPIANNmodelAutoencoder
+
 
 class RPIANNconfig():
 	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None, class_exemplar_images=None):
@@ -66,6 +71,24 @@ class RPIANNmodel(nn.Module):
 		self.using_input_image_projection = useCNNinputProjection
 		self.using_target_image_projection = useCNNtargetProjection
 		self.using_rpi_cnn = useRPICNN
+		if(self.using_input_image_projection):
+			self.use_linear_input_projection = False
+		else:
+			self.use_linear_input_projection = bool(useInputProjection)
+		self.use_input_projection_autoencoder = bool(inputProjectionAutoencoder)
+		self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
+		self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
+		self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
+		self.input_projection_reverse = None
+		self.input_autoencoder_forward_optimizer = None
+		self.input_autoencoder_reverse_optimizer = None
+		self.target_projection_reverse_layers = None
+		self.target_autoencoder_forward_optimizer = None
+		self.target_autoencoder_reverse_optimizer = None
+		if(self.use_input_projection_autoencoder and (not self.use_linear_input_projection)):
+			raise ValueError("inputProjectionAutoencoder=True requires useInputProjection=True and useCNNinputProjection=False.")
+		if(self.use_target_projection_autoencoder and (self.use_target_exemplar_projection or self.using_target_image_projection)):
+			raise ValueError("targetProjectionAutoencoder=True currently requires linear target projections (useCNNtargetProjection=False and targetProjectionExemplarImage=False).")
 		if(useImageDataset):	
 			projection_stride = CNNprojectionStride
 			self._x_feature_shape = None
@@ -75,32 +98,53 @@ class RPIANNmodel(nn.Module):
 
 		if(self.using_input_image_projection):
 			if(self.using_rpi_cnn):
-				self.input_projection, feature_shape = self._build_image_projection(config, stride=projection_stride, trainable=False)
+				self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
 				self._x_feature_shape = feature_shape
-				self._y_feature_shape = self._determine_cnn_feature_shape(config, projection_stride)
+				self._y_feature_shape = RPIANNpt_RPIANNmodelCNNprojection.determine_cnn_feature_shape(self, config, projection_stride)
 				self._x_feature_size = self._feature_size(self._x_feature_shape)
 				self._y_feature_size = self._feature_size(self._y_feature_shape)
 			else:
-				self.input_projection, feature_shape = self._build_image_projection(config, stride=projection_stride, trainable=False)
+				self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
 				self._x_feature_shape = feature_shape
 				self._y_feature_shape = feature_shape
 				self._x_feature_size = self._feature_size(feature_shape)
 				self._y_feature_size = self._x_feature_size
 		else:
 			if(useImageDataset):	
-				self.input_projection = nn.Sequential(nn.Flatten(start_dim=1))
+				self._x_feature_shape = tuple(config.inputImageShape)
+				input_flat_features = self._feature_size(self._x_feature_shape)
 				if(self.using_rpi_cnn):
-					self._x_feature_shape = tuple(config.inputImageShape)
-					self._y_feature_shape = self._determine_cnn_feature_shape(config, projection_stride)
+					self._y_feature_shape = RPIANNpt_RPIANNmodelCNNprojection.determine_cnn_feature_shape(self, config, projection_stride)
 					self._x_feature_size = self._feature_size(self._x_feature_shape)
 					self._y_feature_size = self._feature_size(self._y_feature_shape)
 				else:
-					self._x_feature_shape = tuple(config.inputImageShape)
-					self._x_feature_size = self._feature_size(self._x_feature_shape)
+					self._x_feature_size = input_flat_features
+				if(self.use_linear_input_projection):
+					if(self.using_rpi_cnn):
+						raise ValueError("useInputProjection=True with useRPICNN=True and useCNNinputProjection=False is not supported.")
+					flatten_module = nn.Flatten(start_dim=1)
+					linear_module = nn.Linear(input_flat_features, self.embedding_dim, bias=False)
+					self._initialise_random_linear(linear_module)
+					self.input_projection = nn.Sequential(flatten_module, linear_module)
+					if(self.use_input_projection_autoencoder):
+						RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, input_flat_features)
+					else:
+						linear_module.weight.requires_grad_(False)
+					self._x_feature_size = self.embedding_dim
+				else:
+					self.input_projection = nn.Sequential(nn.Flatten(start_dim=1))
 			else:
-				self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
-				self._initialise_random_linear(self.input_projection)
-				self.input_projection.weight.requires_grad_(False)
+				if(self.use_linear_input_projection):
+					self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
+					self._initialise_random_linear(self.input_projection)
+					self._x_feature_size = self.embedding_dim
+					if(self.use_input_projection_autoencoder):
+						RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, config.inputLayerSize)
+					else:
+						self.input_projection.weight.requires_grad_(False)
+				else:
+					self.input_projection = nn.Identity()
+					self._x_feature_size = config.inputLayerSize
 
 		exemplar_flat_size = None
 		if(self.use_target_exemplar_projection):
@@ -119,7 +163,7 @@ class RPIANNmodel(nn.Module):
 
 		def _make_target_projection_module():
 			if(self.using_target_image_projection):
-				projection_module, _ = self._build_image_projection(config, stride=projection_stride, trainable=False)
+				projection_module, _ = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
 				return projection_module
 			if(self.use_target_exemplar_projection):
 				assert exemplar_flat_size is not None
@@ -134,6 +178,8 @@ class RPIANNmodel(nn.Module):
 		target_projection_modules = [_make_target_projection_module() for _ in range(projection_count)]
 		self.target_projection_layers = nn.ModuleList(target_projection_modules)
 		self.target_projection = self.target_projection_layers[-1]
+		if(self.use_target_projection_autoencoder):
+			RPIANNpt_RPIANNmodelAutoencoder.configure_target_projection_autoencoder(self, config.outputLayerSize)
 
 		if(inputProjectionActivationFunction):
 			self.input_projection_activation = nn.ReLU()
@@ -158,7 +204,7 @@ class RPIANNmodel(nn.Module):
 			with pt.no_grad():
 				weight_matrices = []
 				for module in self.target_projection_layers:
-					class_embeddings = self._project_exemplar_images(self.class_exemplar_images, module=module)
+					class_embeddings = RPIANNpt_RPIANNmodelCNNprojection.project_exemplar_images(self, self.class_exemplar_images, module=module)
 					weight_matrices.append(class_embeddings.transpose(0, 1).contiguous())
 				weight_stack = pt.stack(weight_matrices, dim=0)
 			if(self.train_classification_layer):
@@ -175,7 +221,6 @@ class RPIANNmodel(nn.Module):
 		self.recursive_cnn_layer = None
 		self.recursive_ff_layer = None
 		self.recursive_layer_schedule = None
-		self.mlp_input_adapter = None
 
 		cnn_layers = self.config.numberOfConvlayers
 		ff_layers = self.config.numberOfFFLayers
@@ -185,7 +230,7 @@ class RPIANNmodel(nn.Module):
 				self.recursive_cnn_layer = RecursiveCNNActionLayer(self._y_feature_shape, numberOfSublayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape)
 				layer_schedule.extend(["cnn"] * cnn_layers)
 				if(ff_layers > 0):
-					self.recursive_ff_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation)
+					self.recursive_ff_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation, x_feature_size=self._x_feature_size)
 					layer_schedule.extend(["ff"] * ff_layers)
 				if(not layer_schedule):
 					raise ValueError("useRPICNN=True requires numberOfConvlayers or numberOfFFLayers to be positive.")
@@ -193,7 +238,7 @@ class RPIANNmodel(nn.Module):
 					raise ValueError(f"Configured numberOfLayers ({self.recursion_steps}) must equal numberOfConvlayers + numberOfFFLayers ({len(layer_schedule)}).")
 				self.recursive_layer_schedule = layer_schedule
 			else:
-				self.recursive_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation)
+				self.recursive_layer = RecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation, x_feature_size=self._x_feature_size)
 				self.recursive_layer_schedule = ["ff"] * self.recursion_steps
 			self.nonrecursive_layers = None
 		else:
@@ -201,21 +246,13 @@ class RPIANNmodel(nn.Module):
 			if(self.using_rpi_cnn):
 				layer_modules.extend([NonRecursiveCNNActionLayer(self._y_feature_shape, numberOfSublayers, layerScale, use_activation=self.use_hidden_activation, x_feature_shape=self._x_feature_shape) for _ in range(cnn_layers)])
 				if(ff_layers > 0):
-					layer_modules.extend([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation) for _ in range(ff_layers)])
+					layer_modules.extend([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation, x_feature_size=self._x_feature_size) for _ in range(ff_layers)])
 			else:
-				layer_modules.extend([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation) for _ in range(self.recursion_steps)])
+				layer_modules.extend([NonRecursiveActionLayer(self.embedding_dim, layerScale, use_activation=self.use_hidden_activation, x_feature_size=self._x_feature_size) for _ in range(self.recursion_steps)])
 			if(len(layer_modules) != self.recursion_steps):
 				raise ValueError(f"Configured number of layers ({self.recursion_steps}) does not match instantiated layers ({len(layer_modules)}).")
 			self.nonrecursive_layers = nn.ModuleList(layer_modules)
 
-		if(useImageDataset):
-			x_feature_size = self._x_feature_size
-			target_feature_size = self._y_feature_size
-			if(x_feature_size is not None and target_feature_size is not None):
-				if(self.config.numberOfFFLayers > 0 and x_feature_size != target_feature_size):
-					self.mlp_input_adapter = nn.Linear(x_feature_size, target_feature_size, bias=False)
-					self._initialise_random_linear(self.mlp_input_adapter)
-					self.mlp_input_adapter.weight.requires_grad_(False)
 		if(useClassificationLayerLoss):
 			self.embedding_loss_weight = 0.1
 
@@ -226,12 +263,6 @@ class RPIANNmodel(nn.Module):
 
 	def _initialise_random_linear(self, module):
 		std = 1.0 / math.sqrt(module.out_features)
-		nn.init.normal_(module.weight, mean=0.0, std=std)
-
-	def _initialise_random_conv(self, module):
-		kernel_height, kernel_width = module.kernel_size
-		fan_out = module.out_channels * kernel_height * kernel_width
-		std = 1.0 / math.sqrt(fan_out)
 		nn.init.normal_(module.weight, mean=0.0, std=std)
 
 	def _build_linear_target_projection(self, in_features):
@@ -263,81 +294,18 @@ class RPIANNmodel(nn.Module):
 	def _feature_size(self, feature_shape):
 		channels, height, width = feature_shape
 		return channels * height * width
-
-	def _determine_cnn_feature_shape(self, config, stride):
-		if(config.inputImageShape is None):
-			raise ValueError("Image projection requires an input image shape.")
-		number_of_convs = CNNprojectionNumlayers
-		input_channels, input_height, input_width = config.inputImageShape
-		if(stride == 1):
-			output_height = input_height
-			output_width = input_width
-		elif(stride == 2):
-			total_pool_downscale = stride ** number_of_convs
-			if((input_height % total_pool_downscale) != 0 or (input_width % total_pool_downscale) != 0):
-				raise ValueError("Input spatial dimensions must be divisible by stride**number_of_convlayers.")
-			output_height = input_height // total_pool_downscale
-			output_width = input_width // total_pool_downscale
-		else:
-			raise ValueError("Image projection stride must be 1 or 2.")
-		output_spatial_size = output_height * output_width
-		if(output_spatial_size <= 0):
-			raise ValueError("Calculated CNN output spatial size must be positive.")
-		if(self.embedding_dim % output_spatial_size != 0):
-			raise ValueError("embedding_dim must be divisible by the CNN output spatial size.")
-		out_channels = self.embedding_dim // output_spatial_size
-		if(out_channels <= 0):
-			raise ValueError("Calculated CNN output channels must be positive.")
-		return (out_channels, output_height, output_width)
-
-	def _build_image_projection(self, config, stride=2, trainable=False):
-		if(config.inputImageShape is None):
-			raise ValueError("Image projection requires a defined input image shape.")
-		if(stride not in (1, 2)):
-			raise ValueError("Image projection stride must be 1 or 2.")
-		number_of_convs = CNNprojectionNumlayers
-
-		input_channels, _, _ = config.inputImageShape
-		feature_shape = self._determine_cnn_feature_shape(config, stride)
-		out_channels, _, _ = feature_shape
-
-		use_activation = CNNprojectionActivationFunction
-
-		layers = []
-		in_channels = input_channels
-		for _ in range(number_of_convs):
-			conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-			self._initialise_random_conv(conv)
-			conv.weight.requires_grad_(trainable)
-			layers.append(conv)
-			if(stride == 1):
-				layers.append(nn.MaxPool2d(kernel_size=3, stride=1, padding=1))
-			else:
-				layers.append(nn.AvgPool2d(kernel_size=stride, stride=stride))
-			if(use_activation):
-				layers.append(nn.ReLU())
-			in_channels = out_channels
-
-		layers.append(nn.Flatten(start_dim=1))
-
-		projection = nn.Sequential(*layers)
-		return projection, feature_shape
 			
 	def forward(self, trainOrTest, x, y, optim, layer=None):
-		x_embed_base = self.encode_input(x)
-		x_embed_raw, x_embed_mlp = self._prepare_dual_x_embed(x_embed_base)
+		if(trainOrTest and useProjectionAutoencoder):
+			RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
+		x_embed = self.encode_input(x)
 		target_embeddings = self.encode_targets(y)
 		final_step_index = max(0, self.recursion_steps - 1)
 
 		if(trainOrTest and trainLocal):
-			if(x_embed_mlp is x_embed_raw):
-				x_embed_raw = x_embed_raw.detach()
-				x_embed_mlp = x_embed_raw
-			else:
-				x_embed_raw = x_embed_raw.detach()
-				x_embed_mlp = x_embed_mlp.detach() if x_embed_mlp is not None else None
+			x_embed = x_embed.detach()
 			target_embeddings = target_embeddings.detach()
-			Z = self._train_recursive_locally(x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
+			Z = self._iterate_local(x_embed, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
 			with pt.no_grad():
 				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
 				total_loss, logits, classification_loss, embedding_alignment_loss, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
@@ -348,12 +316,10 @@ class RPIANNmodel(nn.Module):
 			return loss, accuracy
 		else:
 			if(trainOrTest):
-				x_embed_raw = x_embed_raw.requires_grad_()
-				if(x_embed_mlp is not x_embed_raw and x_embed_mlp is not None):
-					x_embed_mlp = x_embed_mlp.requires_grad_()
+				x_embed = x_embed.requires_grad_()
 			target_embeddings = target_embeddings.detach()
 			final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-			Z = self.iterate_prediction(x_embed_raw, x_embed_mlp, train_final_only=trainOrTest and trainFinalIterationOnly)
+			Z = self._iterate_nonlocal(x_embed, train_final_only=trainOrTest and trainFinalIterationOnly)
 			total_loss, logits, _, _, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
 			accuracy = self.accuracyFunction(logits, y)
 			self.last_Z = activated_Z.detach()
@@ -363,27 +329,6 @@ class RPIANNmodel(nn.Module):
 	def _resolve_local_optimizer(self, optim, index):	
 		return optim[index]
 	
-	def _prepare_dual_x_embed(self, x_embed):
-		if(x_embed is None):
-			return x_embed, x_embed
-		if(x_embed.dim() != 2):
-			return x_embed, x_embed
-		if(x_embed.shape[1] == self.embedding_dim):
-			return x_embed, x_embed
-		if(self.mlp_input_adapter is None):
-			return x_embed, x_embed
-		projected = self.mlp_input_adapter(x_embed)
-		projected = self.input_projection_activation(projected)
-		projected = self.input_projection_activation_tanh(projected)
-		return x_embed, projected
-
-	def _select_x_embed(self, layer, x_embed_raw, x_embed_mlp):
-		if(isinstance(layer, (RecursiveActionLayer, NonRecursiveActionLayer))):
-			if(x_embed_mlp is not None):
-				return x_embed_mlp
-			return x_embed_raw
-		return x_embed_raw
-
 	def _resolve_recursive_layer_for_step(self, step):
 		if(not self.use_recursive_layers):
 			return None
@@ -404,10 +349,8 @@ class RPIANNmodel(nn.Module):
 			raise ValueError("Recursive layer schedule references a feed-forward layer, but no recursive feed-forward layer is configured.")
 		raise ValueError(f"Unsupported recursive layer type '{layer_type}'.")
 
-	def _train_recursive_locally(self, x_embed_raw, x_embed_mlp, target_embeddings, y, optim, train_final_only=False):
-		reference_embed = x_embed_mlp
-		if(reference_embed is None):
-			reference_embed = x_embed_raw
+	def _iterate_local(self, x_embed, target_embeddings, y, optim, train_final_only=False):
+		reference_embed = x_embed
 		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
 			Z_state = self._zero_Z_like(reference_embed)
 		else:
@@ -417,7 +360,7 @@ class RPIANNmodel(nn.Module):
 			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
 				layer = self._resolve_recursive_layer_for_step(step)
-				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
+				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
 						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
@@ -430,7 +373,7 @@ class RPIANNmodel(nn.Module):
 				raise ValueError("Non-recursive training requested, but no non-recursive layers are configured.")
 			final_step_index = len(self.nonrecursive_layers) - 1
 			for step, layer in enumerate(self.nonrecursive_layers):
-				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
+				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
 						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
@@ -471,10 +414,8 @@ class RPIANNmodel(nn.Module):
 		out = layer_ref(base, x_embed)
 		return out
 	
-	def iterate_prediction(self, x_embed_raw, x_embed_mlp=None, train_final_only=False):
-		reference_embed = x_embed_mlp
-		if(reference_embed is None):
-			reference_embed = x_embed_raw
+	def _iterate_nonlocal(self, x_embed, train_final_only=False):
+		reference_embed = x_embed
 		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
 			Z = self._zero_Z_like(reference_embed)
 		else:
@@ -483,7 +424,7 @@ class RPIANNmodel(nn.Module):
 			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
 				layer = self._resolve_recursive_layer_for_step(step)
-				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
+				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
 						update = layer(Z, x_for_layer)
@@ -495,7 +436,7 @@ class RPIANNmodel(nn.Module):
 				raise ValueError("Non-recursive prediction requested, but no non-recursive layers are configured.")
 			final_step_index = len(self.nonrecursive_layers) - 1
 			for step, layer in enumerate(self.nonrecursive_layers):
-				x_for_layer = self._select_x_embed(layer, x_embed_raw, x_embed_mlp)
+				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
 						update = layer(Z, x_for_layer)
@@ -578,16 +519,19 @@ class RPIANNmodel(nn.Module):
 				if isinstance(submodule, nn.Linear):
 					return submodule.weight
 		raise ValueError("Unable to locate linear weights in target projection module.")
+
+	def _locate_linear_input_projection(self):
+		module = self.input_projection
+		if isinstance(module, nn.Linear):
+			return module
+		if isinstance(module, nn.Sequential):
+			for submodule in reversed(list(module)):
+				if isinstance(submodule, nn.Linear):
+					return submodule
+		return None
 	
 	def encode_input(self, x):
 		projected = self.encode_inputs(x)
-		return projected
-
-	def _project_exemplar_images(self, images, module=None):
-		projection_module = module if module is not None else self.target_projection
-		projected = projection_module(images)
-		projected = self.target_projection_activation(projected)
-		projected = self.target_projection_activation_tanh(projected)
 		return projected
 	
 	def encode_targets(self, y):
@@ -595,7 +539,7 @@ class RPIANNmodel(nn.Module):
 			exemplar_images = self.class_exemplar_images.index_select(0, y)
 			layer_embeddings = []
 			for module in self.target_projection_layers:
-				layer_embedding = self._project_exemplar_images(exemplar_images, module=module)
+				layer_embedding = RPIANNpt_RPIANNmodelCNNprojection.project_exemplar_images(self, exemplar_images, module=module)
 				layer_embeddings.append(layer_embedding.unsqueeze(0))
 		else:
 			y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
