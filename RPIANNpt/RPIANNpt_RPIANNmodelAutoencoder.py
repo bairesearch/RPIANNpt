@@ -70,11 +70,21 @@ def _set_modules_requires_grad(self, modules, requires_grad):
     else:
         _set_module_requires_grad(self, modules, requires_grad)
 
+def _apply_projection_autoencoder_noise(self, tensor):
+    noise_std = getattr(self, "projection_autoencoder_noise_std", 0.0)
+    if noise_std is None or noise_std <= 0.0:
+        return tensor
+    noise = pt.randn_like(tensor) * noise_std
+    return tensor + noise
+
 def train_autoencoders(self, x, y):
+    input_loss = None
+    target_loss = None
     if(self.use_input_projection_autoencoder):
-        _train_input_autoencoder(self, x)
+        input_loss = _train_input_autoencoder(self, x)
     if(self.use_target_projection_autoencoder):
-        _train_target_autoencoder(self, y)
+        target_loss = _train_target_autoencoder(self, y)
+    return input_loss, target_loss
 
 def _train_input_autoencoder(self, x):
     if(self.input_projection_reverse is None):
@@ -82,13 +92,18 @@ def _train_input_autoencoder(self, x):
     if(self.input_autoencoder_forward_optimizer is None or self.input_autoencoder_reverse_optimizer is None):
         return
     x_batch = x.detach()
+    losses = []
     if(self.input_autoencoder_independent):
-        _execute_input_autoencoder_round(self, x_batch, train_forward=True)
-        _execute_input_autoencoder_round(self, x_batch, train_forward=False)
+        losses.append(_execute_input_autoencoder_round(self, x_batch, train_forward=True))
+        losses.append(_execute_input_autoencoder_round(self, x_batch, train_forward=False))
     else:
-        _execute_input_autoencoder_joint(self, x_batch)
+        losses.append(_execute_input_autoencoder_joint(self, x_batch))
     _set_module_requires_grad(self, self.input_projection, False)
     _set_module_requires_grad(self, self.input_projection_reverse, False)
+    losses = [l for l in losses if l is not None]
+    if(len(losses) == 0):
+        return None
+    return sum(losses) / float(len(losses))
 
 def _execute_input_autoencoder_round(self, x, train_forward):
     if(train_forward):
@@ -102,31 +117,39 @@ def _execute_input_autoencoder_round(self, x, train_forward):
         optimizer = self.input_autoencoder_reverse_optimizer
         detach_encoder = True
     if(optimizer is None):
-        return
+        return None
     optimizer.zero_grad(set_to_none=True)
     loss = _input_autoencoder_loss(self, x, detach_encoder=detach_encoder)
+    if(loss is None):
+        return None
     loss.backward()
     optimizer.step()
+    return loss.detach().item()
 
 def _execute_input_autoencoder_joint(self, x):
     if(self.input_autoencoder_forward_optimizer is None or self.input_autoencoder_reverse_optimizer is None):
-        return
+        return None
     _set_module_requires_grad(self, self.input_projection, True)
     _set_module_requires_grad(self, self.input_projection_reverse, True)
     self.input_autoencoder_forward_optimizer.zero_grad(set_to_none=True)
     self.input_autoencoder_reverse_optimizer.zero_grad(set_to_none=True)
     loss = _input_autoencoder_loss(self, x, detach_encoder=False)
+    if(loss is None):
+        return None
     loss.backward()
     self.input_autoencoder_forward_optimizer.step()
     self.input_autoencoder_reverse_optimizer.step()
+    return loss.detach().item()
 
 def _input_autoencoder_loss(self, x, detach_encoder):
     if(detach_encoder):
         with pt.no_grad():
-            latent = self.encode_inputs(x)
+            noisy_x = _apply_projection_autoencoder_noise(self, x)
+            latent = self.encode_inputs(noisy_x)
         latent = latent.detach()
     else:
-        latent = self.encode_inputs(x)
+        noisy_x = _apply_projection_autoencoder_noise(self, x)
+        latent = self.encode_inputs(noisy_x)
     reconstructed = self.input_projection_reverse(latent)
     target = _flatten_autoencoder_target(x)
     return F.mse_loss(reconstructed, target)
@@ -139,17 +162,22 @@ def _flatten_autoencoder_target(x):
 
 def _train_target_autoencoder(self, y):
     if(self.target_projection_reverse_layers is None):
-        return
+        return None
     if(self.target_autoencoder_forward_optimizer is None or self.target_autoencoder_reverse_optimizer is None):
-        return
+        return None
     one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float().to(y.device)
     one_hot = one_hot.detach()
+    losses = []
     if(self.target_autoencoder_independent):
-        _execute_target_autoencoder_round(self, one_hot, train_forward=True)
-        _execute_target_autoencoder_round(self, one_hot, train_forward=False)
+        losses.append(_execute_target_autoencoder_round(self, one_hot, train_forward=True))
+        losses.append(_execute_target_autoencoder_round(self, one_hot, train_forward=False))
     else:
-        _execute_target_autoencoder_joint(self, one_hot)
+        losses.append(_execute_target_autoencoder_joint(self, one_hot))
     _reset_target_autoencoder_grad_state(self)
+    losses = [l for l in losses if l is not None]
+    if(len(losses) == 0):
+        return None
+    return sum(losses) / float(len(losses))
 
 def _execute_target_autoencoder_round(self, y_vectors, train_forward):
     if(train_forward):
@@ -163,27 +191,29 @@ def _execute_target_autoencoder_round(self, y_vectors, train_forward):
         optimizer = self.target_autoencoder_reverse_optimizer
         detach_encoder = True
     if(optimizer is None):
-        return
+        return None
     optimizer.zero_grad(set_to_none=True)
     loss = _target_autoencoder_loss(self, y_vectors, detach_encoder=detach_encoder)
     if(loss is None):
-        return
+        return None
     loss.backward()
     optimizer.step()
+    return loss.detach().item()
 
 def _execute_target_autoencoder_joint(self, y_vectors):
     if(self.target_autoencoder_forward_optimizer is None or self.target_autoencoder_reverse_optimizer is None):
-        return
+        return None
     _set_modules_requires_grad(self, self.target_projection_layers, True)
     _set_modules_requires_grad(self, self.target_projection_reverse_layers, True)
     self.target_autoencoder_forward_optimizer.zero_grad(set_to_none=True)
     self.target_autoencoder_reverse_optimizer.zero_grad(set_to_none=True)
     loss = _target_autoencoder_loss(self, y_vectors, detach_encoder=False)
     if(loss is None):
-        return
+        return None
     loss.backward()
     self.target_autoencoder_forward_optimizer.step()
     self.target_autoencoder_reverse_optimizer.step()
+    return loss.detach().item()
 
 def _target_autoencoder_loss(self, y_vectors, detach_encoder):
     if(self.target_projection_reverse_layers is None):
@@ -195,10 +225,12 @@ def _target_autoencoder_loss(self, y_vectors, detach_encoder):
     for module, reverse_module in zip(self.target_projection_layers, self.target_projection_reverse_layers):
         if(detach_encoder):
             with pt.no_grad():
-                embedding = _encode_target_with_module(self, module, y_vectors)
+                noisy_targets = _apply_projection_autoencoder_noise(self, y_vectors)
+                embedding = _encode_target_with_module(self, module, noisy_targets)
             embedding = embedding.detach()
         else:
-            embedding = _encode_target_with_module(self, module, y_vectors)
+            noisy_targets = _apply_projection_autoencoder_noise(self, y_vectors)
+            embedding = _encode_target_with_module(self, module, noisy_targets)
         reconstructed = reverse_module(embedding)
         total_loss = total_loss + F.mse_loss(reconstructed, y_vectors)
     return total_loss / float(layer_count)

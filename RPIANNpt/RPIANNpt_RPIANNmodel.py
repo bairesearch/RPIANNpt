@@ -76,9 +76,13 @@ class RPIANNmodel(nn.Module):
 		else:
 			self.use_linear_input_projection = bool(useInputProjection)
 		self.use_input_projection_autoencoder = bool(inputProjectionAutoencoder)
-		self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
-		self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
-		self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
+                self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
+                self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
+                self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
+                self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
+                self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
+                self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
+                self.current_epoch = 0
 		self.input_projection_reverse = None
 		self.input_autoencoder_forward_optimizer = None
 		self.input_autoencoder_reverse_optimizer = None
@@ -261,6 +265,23 @@ class RPIANNmodel(nn.Module):
 		self.last_Z = None
 		self.last_logits = None
 
+        def set_training_epoch(self, epoch):
+                self.current_epoch = epoch
+
+        def pretrain_projection_autoencoders(self, x, y):
+                if(not useProjectionAutoencoder):
+                        return (None, None)
+                return RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
+
+        def _should_run_projection_autoencoders(self):
+                if(not useProjectionAutoencoder):
+                        return False
+		warmup_limit = getattr(self, "projection_autoencoder_warmup_epochs", 0)
+		if(warmup_limit is None or warmup_limit <= 0):
+			return True
+		current_epoch = getattr(self, "current_epoch", 0)
+		return current_epoch < warmup_limit
+
 	def _initialise_random_linear(self, module):
 		std = 1.0 / math.sqrt(module.out_features)
 		nn.init.normal_(module.weight, mean=0.0, std=std)
@@ -296,7 +317,7 @@ class RPIANNmodel(nn.Module):
 		return channels * height * width
 			
 	def forward(self, trainOrTest, x, y, optim, layer=None):
-		if(trainOrTest and useProjectionAutoencoder):
+		if(trainOrTest and self._should_run_projection_autoencoders()):
 			RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
 		x_embed = self.encode_input(x)
 		target_embeddings = self.encode_targets(y)
