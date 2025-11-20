@@ -98,6 +98,8 @@ inputProjectionAutoencoder = False	#default: False	#input projection trained usi
 inputProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
 targetProjectionAutoencoder = False	#default: False	#target projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNtargetProjection
 targetProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
+projectionAutoencoderWarmupEpochs = 0	#default: 0	#run projection autoencoders only for the first N epochs (0 disables warmup and runs every epoch)
+projectionAutoencoderDenoisingStd = 0.0	#default: 0.0	#Gaussian noise stddev applied to autoencoder inputs to discourage identity collapse (0 disables)
 if(inputProjectionAutoencoder or targetProjectionAutoencoder):
 	useProjectionAutoencoder = True
 else:

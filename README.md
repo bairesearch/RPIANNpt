@@ -117,6 +117,14 @@ CNNprojectionNumlayers = 1
 batchSize = 1024
 ```
 
+## Projection autoencoder accuracy considerations
+
+Enabling `inputProjectionAutoencoder` or `targetProjectionAutoencoder` adds a reconstruction objective on the projection layers before every training step. The model first runs the autoencoders and updates the projection weights, then uses those updated weights to encode the batch for the main loss.【F:RPIANNpt/RPIANNpt_RPIANNmodel.py†L298-L324】 Because the autoencoder loss is mean-squared reconstruction of the raw inputs or one-hot targets【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L123-L133】【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L188-L204】, it regularizes the projections toward identity-like mappings rather than the task-specific embeddings that maximize downstream accuracy. When projection weights would otherwise stay fixed (for example, the linear input projection is frozen when the autoencoder is disabled)【F:RPIANNpt/RPIANNpt_RPIANNmodel.py†L122-L145】, the extra reconstruction updates can introduce non-stationary inputs for the rest of the network and compete with the main optimization objective. This mismatch often leads to slightly lower classification accuracy despite the better reconstruction of the original signals.
+
+To capture the reconstruction benefits without letting the auxiliary objective drift the projections away from the task, you can enable a short warmup and stop autoencoder updates afterward by setting `projectionAutoencoderWarmupEpochs` to a small value (for example, 3–5 epochs). This pretrains the projections for faithful reconstruction and then lets the classification loss take over, which tends to improve downstream accuracy compared with leaving the autoencoders active for every epoch.
+
+If the autoencoders still collapse toward identity-like projections, turn them into denoising autoencoders by setting `projectionAutoencoderDenoisingStd` to a small nonzero standard deviation (for example, 0.05–0.1). During autoencoder training this injects Gaussian noise into the inputs/one-hot targets while asking the reverse projections to reconstruct the clean originals【F:RPIANNpt/RPIANNpt_RPIANN_globalDefs.py†L96-L105】【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L41-L47】【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L123-L138】【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L188-L204】. The projections must therefore encode denoised structure instead of copying inputs directly, which typically yields more stable embeddings for the downstream task.
+
 ### Related Work
 
 * Breakaway Network (https://github.com/bairesearch/AEANNpt)

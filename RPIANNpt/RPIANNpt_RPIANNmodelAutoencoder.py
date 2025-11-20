@@ -70,6 +70,13 @@ def _set_modules_requires_grad(self, modules, requires_grad):
     else:
         _set_module_requires_grad(self, modules, requires_grad)
 
+def _apply_projection_autoencoder_noise(self, tensor):
+    noise_std = getattr(self, "projection_autoencoder_noise_std", 0.0)
+    if noise_std is None or noise_std <= 0.0:
+        return tensor
+    noise = pt.randn_like(tensor) * noise_std
+    return tensor + noise
+
 def train_autoencoders(self, x, y):
     if(self.use_input_projection_autoencoder):
         _train_input_autoencoder(self, x)
@@ -123,10 +130,12 @@ def _execute_input_autoencoder_joint(self, x):
 def _input_autoencoder_loss(self, x, detach_encoder):
     if(detach_encoder):
         with pt.no_grad():
-            latent = self.encode_inputs(x)
+            noisy_x = _apply_projection_autoencoder_noise(self, x)
+            latent = self.encode_inputs(noisy_x)
         latent = latent.detach()
     else:
-        latent = self.encode_inputs(x)
+        noisy_x = _apply_projection_autoencoder_noise(self, x)
+        latent = self.encode_inputs(noisy_x)
     reconstructed = self.input_projection_reverse(latent)
     target = _flatten_autoencoder_target(x)
     return F.mse_loss(reconstructed, target)
@@ -195,10 +204,12 @@ def _target_autoencoder_loss(self, y_vectors, detach_encoder):
     for module, reverse_module in zip(self.target_projection_layers, self.target_projection_reverse_layers):
         if(detach_encoder):
             with pt.no_grad():
-                embedding = _encode_target_with_module(self, module, y_vectors)
+                noisy_targets = _apply_projection_autoencoder_noise(self, y_vectors)
+                embedding = _encode_target_with_module(self, module, noisy_targets)
             embedding = embedding.detach()
         else:
-            embedding = _encode_target_with_module(self, module, y_vectors)
+            noisy_targets = _apply_projection_autoencoder_noise(self, y_vectors)
+            embedding = _encode_target_with_module(self, module, noisy_targets)
         reconstructed = reverse_module(embedding)
         total_loss = total_loss + F.mse_loss(reconstructed, y_vectors)
     return total_loss / float(layer_count)
