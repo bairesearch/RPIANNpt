@@ -119,19 +119,53 @@ def createScheduler(model, optim):
 		return [make_scheduler(optim)]
 
 def print_gpu_utilization():
-	GPUs = GPUtil.getGPUs()
-	for gpu in GPUs:
-		printf(f"GPU ID: {gpu.id}, Name: {gpu.name}")
-		printf(f"  Memory Free: {gpu.memoryFree}MB")
-		printf(f"  Memory Used: {gpu.memoryUsed}MB")
-		printf(f"  Memory Total: {gpu.memoryTotal}MB")
-		printf(f"  Utilization: {gpu.load * 100}%")
-		printf(f"  Temperature: {gpu.temperature} C\n")
+        GPUs = GPUtil.getGPUs()
+        for gpu in GPUs:
+                printf(f"GPU ID: {gpu.id}, Name: {gpu.name}")
+                printf(f"  Memory Free: {gpu.memoryFree}MB")
+                printf(f"  Memory Used: {gpu.memoryUsed}MB")
+                printf(f"  Memory Total: {gpu.memoryTotal}MB")
+                printf(f"  Utilization: {gpu.load * 100}%")
+                printf(f"  Temperature: {gpu.temperature} C\n")
+
+def run_projection_autoencoder_pretraining(model, dataset):
+        if((not useProjectionAutoencoder) or projectionAutoencoderPretrainEpochs <= 0):
+                return
+        if(not hasattr(model, "pretrain_projection_autoencoders")):
+                return
+        if(usePairedDataset):
+                print("Skipping projection autoencoder pretraining because paired datasets are enabled.")
+                return
+        if(useTabularDataset):
+                loader_fn = ANNpt_data.createDataLoaderTabular
+        elif(useImageDataset):
+                loader_fn = ANNpt_data.createDataLoaderImage
+        elif(useNLPDataset):
+                loader_fn = ANNpt_data.createDataLoaderNLP
+        else:
+                return
+        for pretrain_epoch in range(projectionAutoencoderPretrainEpochs):
+                loader = loader_fn(dataset)
+                loop = tqdm(loader, leave=True, desc=f"projection AE pretrain {pretrain_epoch+1}/{projectionAutoencoderPretrainEpochs}")
+                for batchIndex, batch in enumerate(loop):
+                        (x, y) = batch
+                        if(not useNLPDataset):
+                                y = y.long()
+                                x = x.to(device)
+                                y = y.to(device)
+                        input_loss, target_loss = model.pretrain_projection_autoencoders(x, y)
+                        if(input_loss is not None or target_loss is not None):
+                                loss_parts = []
+                                if(input_loss is not None):
+                                        loss_parts.append(f"input {input_loss:.4f}")
+                                if(target_loss is not None):
+                                        loss_parts.append(f"target {target_loss:.4f}")
+                                loop.set_postfix_str(" | ".join(loss_parts))
 
 def processDataset(trainOrTest, dataset, model):
-	if(trainOrTest):
-		if(useAlgorithmEISANI and trainLocal):
-			optim = []
+        if(trainOrTest):
+                if(useAlgorithmEISANI and trainLocal):
+                        optim = []
 		elif(useAlgorithmEIANN and trainLocal):
 			optim = []
 			optim += [createOptimiser(model)]
@@ -150,11 +184,14 @@ def processDataset(trainOrTest, dataset, model):
 	totalAccuracy = 0.0
 	totalAccuracyCount = 0
 
-	fieldTypeList = ANNpt_data.createFieldTypeList(dataset)
-	#print("fieldTypeList = ", fieldTypeList)
-	
-	if(useAlgorithmLUOR):
-		ANNpt_algorithm.preprocessLUANNpermutations(dataset, model)
+        fieldTypeList = ANNpt_data.createFieldTypeList(dataset)
+        #print("fieldTypeList = ", fieldTypeList)
+
+        if(trainOrTest):
+                run_projection_autoencoder_pretraining(model, dataset)
+
+        if(useAlgorithmLUOR):
+                ANNpt_algorithm.preprocessLUANNpermutations(dataset, model)
 		
 	for epoch in range(numberOfEpochs):
 
