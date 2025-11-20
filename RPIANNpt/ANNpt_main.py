@@ -158,6 +158,9 @@ def processDataset(trainOrTest, dataset, model):
 		
 	for epoch in range(numberOfEpochs):
 
+		if(trainOrTest and hasattr(model, "set_training_epoch")):
+			model.set_training_epoch(epoch)
+
 		#if(debugPrintGPUusage):
 		#	print_gpu_utilization()
 
