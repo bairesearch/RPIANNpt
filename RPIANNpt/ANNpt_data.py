@@ -65,82 +65,82 @@ def _extract_feature_dtype(feature):
 	return dtype
 
 def _get_arrow_table(dataset_split):
-    # Works across HF 2.x releases
-    table = getattr(dataset_split, "data", None)
-    if table is None:
-        table = getattr(dataset_split, "_data", None)
-    if table is None:
-        table = dataset_split.to_table()  # last resort (avoid in tight loops)
-    return table
+	# Works across HF 2.x releases
+	table = getattr(dataset_split, "data", None)
+	if table is None:
+		table = getattr(dataset_split, "_data", None)
+	if table is None:
+		table = dataset_split.to_table()  # last resort (avoid in tight loops)
+	return table
 
 def _is_binary_arrow_column(column):
-    if isinstance(column, pa.ChunkedArray):
-        column = column.combine_chunks()
-    if len(column) == 0 or column.null_count == len(column):
-        return False
-    non_null = pc.drop_null(column)
-    if len(non_null) == 0:
-        return False
-    col_type = non_null.type
-    if pa.types.is_integer(col_type):
-        limits = pc.min_max(non_null)
-        return limits["min"].as_py() >= 0 and limits["max"].as_py() <= 1
-    if pa.types.is_floating(col_type):
-        allowed = pa.array([0.0, 1.0], type=col_type)
-        mask = pc.is_in(non_null, value_set=allowed)
-        return bool(pc.all(mask).as_py())
-    return False
+	if isinstance(column, pa.ChunkedArray):
+		column = column.combine_chunks()
+	if len(column) == 0 or column.null_count == len(column):
+		return False
+	non_null = pc.drop_null(column)
+	if len(non_null) == 0:
+		return False
+	col_type = non_null.type
+	if pa.types.is_integer(col_type):
+		limits = pc.min_max(non_null)
+		return limits["min"].as_py() >= 0 and limits["max"].as_py() <= 1
+	if pa.types.is_floating(col_type):
+		allowed = pa.array([0.0, 1.0], type=col_type)
+		mask = pc.is_in(non_null, value_set=allowed)
+		return bool(pc.all(mask).as_py())
+	return False
 
 def _cache_tabular_field_types(dataset_dict):
-    global _cachedFeatureTypeList, _cachedFeatureTypeMap, _cachedClassFieldType
-    _cachedFeatureTypeList = _cachedFeatureTypeMap = None
-    _cachedClassFieldType = None
+	global _cachedFeatureTypeList, _cachedFeatureTypeMap, _cachedClassFieldType
+	_cachedFeatureTypeList = _cachedFeatureTypeMap = None
+	_cachedClassFieldType = None
 
-    if dataset_dict is None:
-        printe("_cache_tabular_field_types error: dataset_dict is None")
-        return
+	if dataset_dict is None:
+		printe("_cache_tabular_field_types error: dataset_dict is None")
+		return
 
-    reference_split = dataset_dict.get(datasetSplitNameTrain)
-    if reference_split is None:
-        printe("_cache_tabular_field_types error: reference_split is None")
-        return
+	reference_split = dataset_dict.get(datasetSplitNameTrain)
+	if reference_split is None:
+		printe("_cache_tabular_field_types error: reference_split is None")
+		return
 
-    if 'features' in reference_split.column_names and len(reference_split.column_names) == 2:
-        printe("_cache_tabular_field_types error: 'features' already consolidated")
-        return
+	if 'features' in reference_split.column_names and len(reference_split.column_names) == 2:
+		printe("_cache_tabular_field_types error: 'features' already consolidated")
+		return
 
-    feature_names = [
-        name for name in reference_split.column_names
-        if name not in (classFieldName, 'features')
-    ]
-    if not feature_names:
-        printe("_cache_tabular_field_types error: not feature_names")
-        return
+	feature_names = [
+		name for name in reference_split.column_names
+		if name not in (classFieldName, 'features')
+	]
+	if not feature_names:
+		printe("_cache_tabular_field_types error: not feature_names")
+		return
 
-    arrow_table = _get_arrow_table(reference_split)
+	arrow_table = _get_arrow_table(reference_split)
 
-    _cachedFeatureTypeList = []
-    _cachedFeatureTypeMap = {}
+	_cachedFeatureTypeList = []
+	_cachedFeatureTypeMap = {}
 
-    for feature_name in feature_names:
-        feature_info = reference_split.features[feature_name]
-        dtype = _extract_feature_dtype(feature_info)
+	for feature_name in feature_names:
+		feature_info = reference_split.features[feature_name]
+		dtype = _extract_feature_dtype(feature_info)
 
-        if dtype in {
-            'float16', 'float32', 'float64',
-            'int8', 'int16', 'int32', 'int64',
-            'uint8', 'uint16', 'uint32', 'uint64'
-        }:
-            idx = arrow_table.schema.get_field_index(feature_name)
-            if idx != -1 and _is_binary_arrow_column(arrow_table.column(idx)):
-                dtype = 'bool'
+		if dtype in {
+			'float16', 'float32', 'float64',
+			'int8', 'int16', 'int32', 'int64',
+			'uint8', 'uint16', 'uint32', 'uint64'
+		}:
+			idx = arrow_table.schema.get_field_index(feature_name)
+			if idx != -1 and _is_binary_arrow_column(arrow_table.column(idx)):
+				dtype = 'bool'
 
-        _cachedFeatureTypeList.append(dtype)
-        _cachedFeatureTypeMap[feature_name] = dtype
+		_cachedFeatureTypeList.append(dtype)
+		_cachedFeatureTypeMap[feature_name] = dtype
 
-    class_info = reference_split.features.get(classFieldName)
-    if class_info is not None:
-        _cachedClassFieldType = _extract_feature_dtype(class_info)
+	class_info = reference_split.features.get(classFieldName)
+	if class_info is not None:
+		_cachedClassFieldType = _extract_feature_dtype(class_info)
 
 def loadDataset():
 	if(useTabularDataset):

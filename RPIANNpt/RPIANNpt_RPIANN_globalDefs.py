@@ -98,13 +98,20 @@ inputProjectionAutoencoder = False	#default: False	#input projection trained usi
 inputProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
 targetProjectionAutoencoder = False	#default: False	#target projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNtargetProjection
 targetProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
-projectionAutoencoderWarmupEpochs = 0	#default: 0	#run projection autoencoders only for the first N epochs (0 disables warmup and runs every epoch)
-projectionAutoencoderDenoisingStd = 0.0	#default: 0.0	#Gaussian noise stddev applied to autoencoder inputs to discourage identity collapse (0 disables)
-projectionAutoencoderPretrainEpochs = 0	#default: 0	#run projection autoencoders in a separate pretraining stage before the main task (0 disables)
 if(inputProjectionAutoencoder or targetProjectionAutoencoder):
 	useProjectionAutoencoder = True
+	projectionAutoencoderPretrainEpochs = 10	#default: 10	#orig: 0	#run projection autoencoders in a separate pretraining stage before the main task (0 disables pretrain, >0 disables warmup and run every epoch)
+	projectionAutoencoderWarmupEpochs = 0	#default: 0	#orig: 5	#requires trainNumberOfEpochsHigh(~*2)	#run projection autoencoders only for the first N epochs (0 disables warmup and runs every epoch)
+	if(inputProjectionAutoencoderIndependent):
+		projectionAutoencoderDenoisingStd = 0.1	#default: 0.1	#orig: 0.1	#Gaussian noise stddev applied to autoencoder inputs to discourage identity collapse (0 disables)
+	else:
+		projectionAutoencoderDenoisingStd = 0.1	#default: 0.1 #orig: 0.0
 else:
 	useProjectionAutoencoder = False
+	projectionAutoencoderPretrainEpochs = 0
+	projectionAutoencoderWarmupEpochs = 0
+	projectionAutoencoderDenoisingStd = 0.0
+	
 
 #target embedding sparsity parameters:
 targetProjectionSparse = False #default: False #orig: False	#generate a sparse instead of dense target embedding

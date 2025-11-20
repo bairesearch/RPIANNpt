@@ -76,13 +76,13 @@ class RPIANNmodel(nn.Module):
 		else:
 			self.use_linear_input_projection = bool(useInputProjection)
 		self.use_input_projection_autoencoder = bool(inputProjectionAutoencoder)
-                self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
-                self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
-                self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
-                self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
-                self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
-                self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
-                self.current_epoch = 0
+		self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
+		self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
+		self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
+		self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
+		self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
+		self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
+		self.current_epoch = 0
 		self.input_projection_reverse = None
 		self.input_autoencoder_forward_optimizer = None
 		self.input_autoencoder_reverse_optimizer = None
@@ -265,17 +265,21 @@ class RPIANNmodel(nn.Module):
 		self.last_Z = None
 		self.last_logits = None
 
-        def set_training_epoch(self, epoch):
-                self.current_epoch = epoch
+	def set_training_epoch(self, epoch):
+		self.current_epoch = epoch
 
-        def pretrain_projection_autoencoders(self, x, y):
-                if(not useProjectionAutoencoder):
-                        return (None, None)
-                return RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
+	def pretrain_projection_autoencoders(self, x, y):
+		if(not useProjectionAutoencoder):
+			return (None, None)
+		return RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
 
-        def _should_run_projection_autoencoders(self):
-                if(not useProjectionAutoencoder):
-                        return False
+	def _should_run_projection_autoencoders(self):
+		if(not useProjectionAutoencoder):
+			return False
+		pretrain_epochs = getattr(self, "projection_autoencoder_pretrain_epochs", 0)
+		if(pretrain_epochs is not None and pretrain_epochs > 0):
+			# When a dedicated pretraining stage is configured, skip autoencoder updates during main training.
+			return False
 		warmup_limit = getattr(self, "projection_autoencoder_warmup_epochs", 0)
 		if(warmup_limit is None or warmup_limit <= 0):
 			return True

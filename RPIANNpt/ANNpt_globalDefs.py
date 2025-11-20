@@ -477,7 +477,7 @@ if(useAlgorithmEISANI):
 			numberOfLayers = numberOfLayers*2
 else:
 	if(trainNumberOfEpochsHigh):
-		trainNumberOfEpochs = trainNumberOfEpochs*4	#orig*4
+		trainNumberOfEpochs = trainNumberOfEpochs*4	#default: trainNumberOfEpochs*4
 	if(hiddenLayerSizeHigh):
 		hiddenLayerSize = hiddenLayerSize*4
 	if(numberOfLayersLow):
