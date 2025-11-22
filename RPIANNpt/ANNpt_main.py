@@ -144,23 +144,42 @@ def run_projection_autoencoder_pretraining(model, dataset):
 		loader_fn = ANNpt_data.createDataLoaderNLP
 	else:
 		return
-	for pretrain_epoch in range(projectionAutoencoderPretrainEpochs):
-		loader = loader_fn(dataset)
-		loop = tqdm(loader, leave=True, desc=f"projection AE pretrain {pretrain_epoch+1}/{projectionAutoencoderPretrainEpochs}")
-		for batchIndex, batch in enumerate(loop):
-			(x, y) = batch
-			if(not useNLPDataset):
-				y = y.long()
-				x = x.to(device)
-				y = y.to(device)
-			input_loss, target_loss = model.pretrain_projection_autoencoders(x, y)
-			if(input_loss is not None or target_loss is not None):
-				loss_parts = []
-				if(input_loss is not None):
-					loss_parts.append(f"input {input_loss:.4f}")
-				if(target_loss is not None):
-					loss_parts.append(f"target {target_loss:.4f}")
-				loop.set_postfix_str(" | ".join(loss_parts))
+	separate = getattr(model, "projection_autoencoder_independent_separate", False)
+	independent = getattr(model, "input_autoencoder_independent", False) and getattr(model, "target_autoencoder_independent", False)
+	if(separate and independent):
+		phase_order = []
+		if(getattr(model, "input_projection_autoencoder", False)):
+			phase_order.append("input")
+		if(getattr(model, "target_projection_autoencoder", False)):
+			phase_order.append("target")
+		if(not phase_order):
+			phase_order = ["both"]
+	else:
+		phase_order = ["both"]
+	for phase in phase_order:
+		if(hasattr(model, "set_projection_autoencoder_phase")):
+			model.set_projection_autoencoder_phase(phase)
+		phase_desc = "joint" if phase == "both" else phase
+		for pretrain_epoch in range(projectionAutoencoderPretrainEpochs):
+			loader = loader_fn(dataset)
+			desc = f"projection AE pretrain [{phase_desc}] {pretrain_epoch+1}/{projectionAutoencoderPretrainEpochs}"
+			loop = tqdm(loader, leave=True, desc=desc)
+			for batchIndex, batch in enumerate(loop):
+				(x, y) = batch
+				if(not useNLPDataset):
+					y = y.long()
+					x = x.to(device)
+					y = y.to(device)
+				input_loss, target_loss = model.pretrain_projection_autoencoders(x, y)
+				if(input_loss is not None or target_loss is not None):
+					loss_parts = []
+					if(input_loss is not None):
+						loss_parts.append(f"input {input_loss:.4f}")
+					if(target_loss is not None):
+						loss_parts.append(f"target {target_loss:.4f}")
+					loop.set_postfix_str(" | ".join(loss_parts))
+	if(hasattr(model, "reset_projection_autoencoder_phase")):
+		model.reset_projection_autoencoder_phase()
 
 def processDataset(trainOrTest, dataset, model):
 	if(trainOrTest):
@@ -351,4 +370,3 @@ def print_tqdm_output(epoch: int, start_time: float, batch_index: int, loss: flo
 					
 if(__name__ == '__main__'):
 	main()
-

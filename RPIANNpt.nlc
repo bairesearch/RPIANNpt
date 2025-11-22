@@ -176,3 +176,34 @@ projectionAutoencoderWarmupEpochs + projectionAutoencoderDenoisingStd + projecti
 
 	To decouple the projection reconstruction objective from the main task even further, you can pretrain the autoencoders before normal RPIANN updates by setting `projectionAutoencoderPretrainEpochs` to a positive integer. This runs dedicated epochs that only optimize the projection autoencoders (using their own optimizers) before any task loss is applied, reporting the input and target reconstruction losses as it goes.【F:RPIANNpt/ANNpt_main.py†L131-L163】【F:RPIANNpt/RPIANNpt_RPIANNmodel.py†L268-L279】【F:RPIANNpt/RPIANNpt_RPIANNmodelAutoencoder.py†L80-L109】【F:RPIANNpt/RPIANNpt_RPIANN_globalDefs.py†L96-L107】 After the pretraining window, you can either keep a short warmup (`projectionAutoencoderWarmupEpochs`) or disable the autoencoders entirely, which often yields higher accuracy than interleaving reconstruction and task updates every epoch because the projections start from a well-shaped embedding space and are no longer pulled toward identity during supervised training.
 
+---
+pseudo inputProjectionAutoencoder/targetProjectionAutoencoder (Codex IDE GPT-5.1-Codex prompt):
+
+Please upgrade the useProjectionAutoencoder implementation to no longer use a strict autoencoder (x->Z->x and y->Z->y), but instead train the input/target projections with the help of each other (ie x->Z->y and y->Z->x). 
+
+Please upgrade options inputProjectionAutoencoder=True and targetProjectionAutoencoder=True; when these options are enabled the input and/or target projections are trained using a pseudo-autoencoder algorithm;
+
+inputProjectionAutoencoder: input->Z->target (matrices for "forward network direction") 
+targetProjectionAutoencoder: target->Z->input (matrices for "reverse network direction")
+
+Please also upgrade options inputProjectionAutoencoderIndependent=True and targetProjectionAutoencoderIndependent=True; when these options are also enabled, the input projection (ie input->Z) and target projection (ie target->Z) matrices are trained independently by holding all other weights constant while they are being trained. Each batch processed by RPIANN will therefore apply 2 autoencoder subtraining rounds, "input"/"target";
+
+a) "input" subtraining round will train the input projection (input->Z);
+- The target projection layer is executed to obtain the activations of Z.
+- the input projection layer is then executed to obtain the predicted activations of Z_hat.
+- single layer backprop is then applied to train the input projection weights (using the error of Z_hat/Z).
+
+b) "target" subtraining round will train the input target projection (target->Z);
+- The input projection layer is executed to obtain the activations of Z.
+- the target projection layer is then executed to obtain the predicted Z_hat values.
+- single layer backprop is then applied to train the target projection layer weights (using the error of Z_hat/Z).
+
+When inputProjectionAutoencoderIndependent=False and targetProjectionAutoencoderIndependent=False the input and target projection  matrices are trained together by;
+a) training the "forward network direction" using 2 layer backprop (ie x->Z->y), which includes input projection matrix (x->Z), and;
+b) their "reverse network direction" matrices (ie y->Z->x) are derived by taking their inverse, which includes target projection matrix (y->Z).
+
+---
+projectionAutoencoderVICReg (Codex IDE GPT-5.1-Codex prompt):
+
+Please add option projectionAutoencoderVICReg=True; to enforce a VICReg constraint on the embeddings Z. I have added templates/VICRegANNpt_VICRegANNloss.py as a reference for the VICReg algorithm in case this helps you think about your implementation.
+

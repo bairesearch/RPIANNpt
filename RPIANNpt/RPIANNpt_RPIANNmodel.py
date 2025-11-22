@@ -75,24 +75,39 @@ class RPIANNmodel(nn.Module):
 			self.use_linear_input_projection = False
 		else:
 			self.use_linear_input_projection = bool(useInputProjection)
-		self.use_input_projection_autoencoder = bool(inputProjectionAutoencoder)
-		self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
-		self.use_target_projection_autoencoder = bool(targetProjectionAutoencoder)
-		self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
-		self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
-		self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
-		self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
-		self.current_epoch = 0
-		self.input_projection_reverse = None
-		self.input_autoencoder_forward_optimizer = None
-		self.input_autoencoder_reverse_optimizer = None
-		self.target_projection_reverse_layers = None
-		self.target_autoencoder_forward_optimizer = None
-		self.target_autoencoder_reverse_optimizer = None
-		if(self.use_input_projection_autoencoder and (not self.use_linear_input_projection)):
-			raise ValueError("inputProjectionAutoencoder=True requires useInputProjection=True and useCNNinputProjection=False.")
-		if(self.use_target_projection_autoencoder and (self.use_target_exemplar_projection or self.using_target_image_projection)):
-			raise ValueError("targetProjectionAutoencoder=True currently requires linear target projections (useCNNtargetProjection=False and targetProjectionExemplarImage=False).")
+		self.useProjectionAutoencoder = bool(useProjectionAutoencoder)
+		if(self.useProjectionAutoencoder):
+			self.useProjectionAutoencoderIndependent = bool(useProjectionAutoencoderIndependent)
+			self.input_projection_autoencoder = bool(inputProjectionAutoencoder)
+			self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
+			self.target_projection_autoencoder = bool(targetProjectionAutoencoder)
+			self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
+			self.projection_autoencoder_independent_separate = bool(projectionAutoencoderIndependentSeparateTrainPhases)
+			self.projection_autoencoder_phase = "both"
+			self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
+			self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
+			self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
+			self.use_projection_autoencoder_vicreg = bool(projectionAutoencoderVICReg)
+			self.use_projection_autoencoder_vicreg_contrastive = bool(projectionAutoencoderVICRegContrastiveLoss)
+			if(projectionAutoencoderVICReg):
+				self.projection_autoencoder_vicreg_lambda = projectionAutoencoderVICRegLambda
+				self.projection_autoencoder_vicreg_mu = projectionAutoencoderVICRegMu
+				self.projection_autoencoder_vicreg_nu = projectionAutoencoderVICRegNu
+				self.projection_autoencoder_vicreg_eps = projectionAutoencoderVICRegEps
+			if(projectionAutoencoderVICRegContrastiveLoss):
+				self.projection_autoencoder_contrastive_weight = projectionAutoencoderVICRegContrastiveWeight
+				self.projection_autoencoder_contrastive_margin = projectionAutoencoderVICRegContrastiveMargin
+			self.current_epoch = 0
+			self.input_projection_reverse = None
+			self.input_autoencoder_forward_optimizer = None
+			self.input_autoencoder_reverse_optimizer = None
+			self.target_projection_reverse_layers = None
+			self.target_autoencoder_forward_optimizer = None
+			self.target_autoencoder_reverse_optimizer = None
+			if(self.input_projection_autoencoder and (not self.use_linear_input_projection)):
+				raise ValueError("inputProjectionAutoencoder=True requires useInputProjection=True and useCNNinputProjection=False.")
+			if(self.target_projection_autoencoder and (self.use_target_exemplar_projection or self.using_target_image_projection)):
+				raise ValueError("targetProjectionAutoencoder=True currently requires linear target projections (useCNNtargetProjection=False and targetProjectionExemplarImage=False).")
 		if(useImageDataset):	
 			projection_stride = CNNprojectionStride
 			self._x_feature_shape = None
@@ -130,7 +145,7 @@ class RPIANNmodel(nn.Module):
 					linear_module = nn.Linear(input_flat_features, self.embedding_dim, bias=False)
 					self._initialise_random_linear(linear_module)
 					self.input_projection = nn.Sequential(flatten_module, linear_module)
-					if(self.use_input_projection_autoencoder):
+					if(self.useProjectionAutoencoder and self.input_projection_autoencoder):
 						RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, input_flat_features)
 					else:
 						linear_module.weight.requires_grad_(False)
@@ -142,7 +157,7 @@ class RPIANNmodel(nn.Module):
 					self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
 					self._initialise_random_linear(self.input_projection)
 					self._x_feature_size = self.embedding_dim
-					if(self.use_input_projection_autoencoder):
+					if(self.useProjectionAutoencoder and self.input_projection_autoencoder):
 						RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, config.inputLayerSize)
 					else:
 						self.input_projection.weight.requires_grad_(False)
@@ -182,7 +197,7 @@ class RPIANNmodel(nn.Module):
 		target_projection_modules = [_make_target_projection_module() for _ in range(projection_count)]
 		self.target_projection_layers = nn.ModuleList(target_projection_modules)
 		self.target_projection = self.target_projection_layers[-1]
-		if(self.use_target_projection_autoencoder):
+		if(self.useProjectionAutoencoder and self.target_projection_autoencoder):
 			RPIANNpt_RPIANNmodelAutoencoder.configure_target_projection_autoencoder(self, config.outputLayerSize)
 
 		if(inputProjectionActivationFunction):
@@ -267,14 +282,20 @@ class RPIANNmodel(nn.Module):
 
 	def set_training_epoch(self, epoch):
 		self.current_epoch = epoch
+	
+	def set_projection_autoencoder_phase(self, phase):
+		self.projection_autoencoder_phase = phase
+	
+	def reset_projection_autoencoder_phase(self):
+		self.projection_autoencoder_phase = "both"
 
 	def pretrain_projection_autoencoders(self, x, y):
-		if(not useProjectionAutoencoder):
+		if(not self.useProjectionAutoencoder):
 			return (None, None)
 		return RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
 
 	def _should_run_projection_autoencoders(self):
-		if(not useProjectionAutoencoder):
+		if(not self.useProjectionAutoencoder):
 			return False
 		pretrain_epochs = getattr(self, "projection_autoencoder_pretrain_epochs", 0)
 		if(pretrain_epochs is not None and pretrain_epochs > 0):

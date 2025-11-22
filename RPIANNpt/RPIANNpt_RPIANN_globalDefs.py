@@ -94,23 +94,39 @@ targetProjectionActivationFunctionTanh = hiddenActivationFunctionTanh	#default: 
 targetProjectionUniquePerLayer = False	#default: False	#orig: False
 
 #projection autoencoder parameters:
-inputProjectionAutoencoder = False	#default: False	#input projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNinputProjection
-inputProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
-targetProjectionAutoencoder = False	#default: False	#target projection trained using an autoencoder algorithm	#not compatible with useImageDataset:useCNNtargetProjection
-targetProjectionAutoencoderIndependent = False	#default: False	#each direction of the autoencoders is trained independently by holding the other direction weights constant
-if(inputProjectionAutoencoder or targetProjectionAutoencoder):
-	useProjectionAutoencoder = True
+useProjectionAutoencoder = False	#default: False	#input/target projection trained using a pseudo-autoencoder algorithm
+useProjectionAutoencoderIndependent = False	#default: False	#each direction of the pseudo-autoencoders is trained independently by holding all other weights constant
+if(useProjectionAutoencoder):
+	inputProjectionAutoencoder = True	#default: False	#input projection trained using a pseudo-autoencoder algorithm	#not compatible with useImageDataset:useCNNinputProjection
+	targetProjectionAutoencoder = True	#default: False	#target projection trained using a pseudo-autoencoder algorithm	#not compatible with useImageDataset:useCNNtargetProjection
+	if(useProjectionAutoencoderIndependent):
+		inputProjectionAutoencoderIndependent = True	#default: False	#each direction of the pseudo-autoencoders is trained independently by holding all other weights constant
+		targetProjectionAutoencoderIndependent = True	#default: False	#each direction of the pseudo-autoencoders is trained independently by holding all other weights constant
+	else:
+		inputProjectionAutoencoderIndependent = False
+		targetProjectionAutoencoderIndependent = False
+
+if(useProjectionAutoencoder):
 	projectionAutoencoderPretrainEpochs = 10	#default: 10	#orig: 0	#run projection autoencoders in a separate pretraining stage before the main task (0 disables pretrain, >0 disables warmup and run every epoch)
 	projectionAutoencoderWarmupEpochs = 0	#default: 0	#orig: 5	#requires trainNumberOfEpochsHigh(~*2)	#run projection autoencoders only for the first N epochs (0 disables warmup and runs every epoch)
-	if(inputProjectionAutoencoderIndependent):
-		projectionAutoencoderDenoisingStd = 0.1	#default: 0.1	#orig: 0.1	#Gaussian noise stddev applied to autoencoder inputs to discourage identity collapse (0 disables)
+	projectionAutoencoderDenoisingStd = 0.0	#default: 0.0 
+	projectionAutoencoderVICReg = False
+	projectionAutoencoderVICRegContrastiveLoss = False
+	if(useProjectionAutoencoderIndependent):
+		projectionAutoencoderIndependentSeparateTrainPhases = True	#default: True	orig: False
+		if(not projectionAutoencoderIndependentSeparateTrainPhases):
+			projectionAutoencoderVICReg = True	#default: False	#apply VICReg constraints to projection embeddings
+			projectionAutoencoderVICRegContrastiveLoss = True	#default: False	#apply contrastive loss to projection embeddings
 	else:
-		projectionAutoencoderDenoisingStd = 0.1	#default: 0.1 #orig: 0.0
-else:
-	useProjectionAutoencoder = False
-	projectionAutoencoderPretrainEpochs = 0
-	projectionAutoencoderWarmupEpochs = 0
-	projectionAutoencoderDenoisingStd = 0.0
+		projectionAutoencoderIndependentSeparateTrainPhases = False
+	if(projectionAutoencoderVICReg):
+		projectionAutoencoderVICRegLambda = 25.0
+		projectionAutoencoderVICRegMu = 25.0
+		projectionAutoencoderVICRegNu = 1.0
+		projectionAutoencoderVICRegEps = 1e-4
+	if(projectionAutoencoderVICRegContrastiveLoss):
+		projectionAutoencoderVICRegContrastiveWeight = 1.0
+		projectionAutoencoderVICRegContrastiveMargin = 0.0
 	
 
 #target embedding sparsity parameters:
