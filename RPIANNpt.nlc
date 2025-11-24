@@ -207,3 +207,16 @@ projectionAutoencoderVICReg (Codex IDE GPT-5.1-Codex prompt):
 
 Please add option projectionAutoencoderVICReg=True; to enforce a VICReg constraint on the embeddings Z. I have added templates/VICRegANNpt_VICRegANNloss.py as a reference for the VICReg algorithm in case this helps you think about your implementation.
 
+---
+useNLPDataset (Codex IDE GPT-5.1-Codex prompt):
+
+For case useNLPDataset=True only, please update update encode_input()/encode_targets() to change their input/target projector to execute nn.Embedding.
+a) if useInputPretrainedBertEmbedding=True then set the input projector to use the pretrained bert embeddings, else use random embeddings. Ensure to respect inputEmbeddingSize.
+b) if useTargetPretrainedBertEmbedding=True then set the target projector to use the pretrained bert embeddings, else use random embeddings. Ensure to respect targetEmbeddingSize.
+Do not change any existing useNLPDataset=False code.
+
+Please also;
+- Ensure the top-1 accuracy is being calculated based on the original bert input_ids (one-hot encoded) of y.
+- When useClassificationLayerLoss=True, ensure the loss is calculated at this layer and backpropagated (no change should be required). 
+- When useClassificationLayerLoss=False, ensure the loss is calculated at the target embedding layer (no change should be required).
+- Ensure the loss/accuracy calculations respect the presence of padding tokens in the batch; when y is a padding token for batch sample, then its loss/accuracy should not contribute to the total loss/accuracy across the entire sliding window

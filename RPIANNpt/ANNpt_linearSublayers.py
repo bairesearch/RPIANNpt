@@ -161,8 +161,8 @@ def generateActivationLayer(self, layerIndex, config, positive=True):
 	return generateActivationFunction(activationFunctionType, positive)
 
 class ReLUNeg(nn.Module):
-	def forward(self, x):
-		return pt.relu(-x)
+    def forward(self, x):
+        return pt.relu(-x)
 		
 def generateActivationFunction(activationFunctionType, positive=True):
 	if(activationFunctionType=="softmax"):
@@ -431,7 +431,7 @@ def printLayerWeights(name, weights):
 		print(name, " = ", weights)
 
 def custom_formatter(array):
-	return f"{array}"
+    return f"{array}"
 		
 def weightsSetPositiveModel(self):
 	if(useSignedWeights):
@@ -468,6 +468,10 @@ class OffsetSoftmax(nn.Module):
 		return x
 
 def executeResidual(self, l1, l2, Z, AprevLayer):
+	if(supportSkipLayersResidual):
+		# only do a residual add if shapes already match
+		if AprevLayer.shape == Z.shape:
+			Z = Z + AprevLayer
 	return Z
 
 def executeBatchNormLayer(self, layerIndex, x, batchNorm, batchNormFC):

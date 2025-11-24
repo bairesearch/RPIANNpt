@@ -20,9 +20,12 @@ RPIANNpt globalDefs
 #debug parameters:
 printRPIANNmodelProperties = True
 debugPrintConcatWeights = False	#requires useLovelyTensors
+debugSequentialLoops = False
 
 #dataset parameters:
+useTabularDataset = True
 useImageDataset = False 	#use CIFAR-10 dataset with CNN
+useNLPDataset = False	#aka useSequenceDataset
 
 #backprop parameters:
 trainLocal = True	#default: True #disable for debug/benchmark against standard full layer backprop
@@ -56,8 +59,13 @@ if(numberOfSublayers > 1):
 	subLayerFirstSparsityLevel = 0.9	#fraction of first sublayer weights zeroed when subLayerFirstSparse=True (0.0-1.0)
 	
 #RPICNN parameters:
-if(useImageDataset):
-	useTabularDataset = False
+if(useTabularDataset):
+	useRPICNN = False
+	useInputProjection = True	#default: True
+	useCNNinputProjection = False
+	useCNNtargetProjection = False
+	targetProjectionExemplarImage = False	
+elif(useImageDataset):
 	useRPICNN = False	#orig: False	#recursive CNN layers
 	if(useRPICNN):
 		RPICNNuniqueWeightsPerPixel = True	#default: True	#orig: False	#each pixel of the RPICNN action layer has its own unique CNN kernel weights
@@ -76,13 +84,56 @@ if(useImageDataset):
 		useCNNinputProjection = True	#default: True	#untrained CNN layers (image projection) - useImageProjection
 		useCNNtargetProjection = False	#default: False (retaining image space provides no benefit to MLP action layers) #orig: False
 		targetProjectionExemplarImage = useCNNtargetProjection	#default: False	(retaining image space provides no benefit to MLP action layers) #orig: False
-else:
-	useTabularDataset = True
+elif(useNLPDataset):
 	useRPICNN = False
 	useInputProjection = True	#default: True
 	useCNNinputProjection = False
 	useCNNtargetProjection = False
 	targetProjectionExemplarImage = False
+
+#useNLPDataset parameters:
+useSlidingWindow = False
+if(useNLPDataset):
+	useSlidingWindow = True	#mandatory
+	useNLPcharacterInput = False	#default: False - use token input
+	useNLPcharacterInputBasic = True	#if True: only use a basic lowercase+punctuation character set of 30 chars, else if False: use a full printable subset of ASCII-128
+	useNLPDatasetMultipleTokenisation = False
+	useTokenEmbedding = False	#CHECKTHIS
+	if(useNLPcharacterInput):
+		useContinuousVarEncodeMethod = "onehot"	#just convert character id directly to onehot vector
+		if(useNLPcharacterInputBasic):
+			NLPcharacterInputBasicSet = [' ', 'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','.','(',')', ',']	#select 31 characters for normalcy
+			NLPcharacterInputSetLen = len(NLPcharacterInputBasicSet)+1	#32	# 0 reserved for PAD (NLPcharacterInputPadTokenID)
+		else:
+			NLPcharacterInputSetLen = 98	  # full printable subset of ASCII-128	# 0 reserved for PAD (NLPcharacterInputPadTokenID)
+		EISANINLPcontinuousVarEncodingNumBits = NLPcharacterInputSetLen
+		
+		contextSizeMax = 128*4	#default: 512	#production: 512*4	#assume approx 4 characters per BERT token
+		numberOfClasses = NLPcharacterInputSetLen
+	else:	
+		bertModelName = "bert-base-uncased"	#bertModelName = "bert-large-uncased"
+		bertNumberTokenTypes = 30522	#tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")	print(len(tokenizer))
+		contextSizeMax = 128	#efficient: 64 #default: 128	#depends on sequentialSANItimeInvariance (uses tokens in inference further than training), sequentialSANIoverlappingSegments (linear instead of exponential time invariance across layers), memory efficiency (less tokens means less serial and more parallel processing), and average number of tokens per sentence (to ensure always sampling tokens across entire sentences)
+		numberOfClasses = bertNumberTokenTypes
+		useInputPretrainedBertEmbedding = True	#default: True
+		useTargetPretrainedBertEmbedding = False	#default: False
+		if(useInputPretrainedBertEmbedding):
+			if bertModelName=="bert-base-uncased":
+				inputEmbeddingSize = 768
+			elif bertModelName=="bert-large-uncased":
+				inputEmbeddingSize = 1024
+		else:
+			inputEmbeddingSize = 1024
+		if(useTargetPretrainedBertEmbedding):
+			if bertModelName=="bert-base-uncased":
+				targetEmbeddingSize = 768
+			elif bertModelName=="bert-large-uncased":
+				targetEmbeddingSize = 1024
+		else:
+			targetEmbeddingSize = 2048	#targetEmbeddingSize equals hiddenLayerSize
+	sequenceLength = contextSizeMax
+	NLPcharacterInputPadTokenID = 0	#must be same as bert pad token id	#assert bert_tokenizer.pad_token_id == NLPcharacterInputPadTokenID
+	NLPpadTokenID = NLPcharacterInputPadTokenID
 
 #activation function parameters:
 inputProjectionActivationFunction = True	#default: True	#orig: False	#relu	#not necessary (removes 50% bits from input projection output), but keeps all layer inputs (x embed and Z) in similar range (ie zero or positive)
@@ -134,8 +185,12 @@ targetProjectionSparse = False #default: False #orig: False	#generate a sparse i
 targetProjectionSparsityLevel = 0.9	#fraction of target projection weights zeroed when targetProjectionSparse=True (0.0-1.0)
 
 #hidden size parameters:
-if(useImageDataset):
-	hiddenLayerSize = 2048	#2048	#*8	#default: 2048
+if(useTabularDataset):
+	hiddenLayerSizeHigh = True	#default: True	#use ~4x more hidden neurons	#large projection from input/output
+elif(useImageDataset):
+	hiddenLayerSize = 8192	#default: 8192	#8192, 2048, 512
+elif(useNLPDataset):
+	hiddenLayerSize = targetEmbeddingSize
 
 #CNN projection parameters:
 if(useImageDataset):
@@ -169,11 +224,12 @@ if(useTabularDataset):
 	datasetType = "useTabularDataset"
 elif(useImageDataset):
 	datasetType = "useImageDataset"
-
+elif(useNLPDataset):
+	datasetType = "useNLPDataset"
+	
 #training/network scale parameters:
 trainRepeatBatchX = 1	#default: 1	#trains each batch ~9x	#temp
 trainNumberOfEpochsHigh = False	#default: False	#use ~4x more epochs to train
-hiddenLayerSizeHigh = True	#default: True	#use ~4x more hidden neurons	#large projection from input/output
 
 #data storage parameters:
 workingDrive = '/large/source/ANNpython/RPIANNpt/'

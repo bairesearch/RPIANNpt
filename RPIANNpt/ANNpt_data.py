@@ -35,6 +35,10 @@ elif(useNLPDataset):
 	bert_pad_id = None
 	bert_tokenizer = None
 	import string
+	from collections import defaultdict
+	if(useNLPDatasetMultipleTokenisation and useNLPDatasetMultipleTokenisationSpacy):
+		import spacy
+		nlp = spacy.load("en_core_web_sm", disable=["ner", "parser", "lemmatizer"])	 # spaCy pipeline
 import pyarrow as pa
 import pyarrow.compute as pc
 
@@ -63,84 +67,84 @@ def _extract_feature_dtype(feature):
 		inner_feature = getattr(feature, 'value_type')
 		dtype = getattr(inner_feature, 'dtype', None)
 	return dtype
-
+	
 def _get_arrow_table(dataset_split):
-	# Works across HF 2.x releases
-	table = getattr(dataset_split, "data", None)
-	if table is None:
-		table = getattr(dataset_split, "_data", None)
-	if table is None:
-		table = dataset_split.to_table()  # last resort (avoid in tight loops)
-	return table
+    # Works across HF 2.x releases
+    table = getattr(dataset_split, "data", None)
+    if table is None:
+        table = getattr(dataset_split, "_data", None)
+    if table is None:
+        table = dataset_split.to_table()  # last resort (avoid in tight loops)
+    return table
 
 def _is_binary_arrow_column(column):
-	if isinstance(column, pa.ChunkedArray):
-		column = column.combine_chunks()
-	if len(column) == 0 or column.null_count == len(column):
-		return False
-	non_null = pc.drop_null(column)
-	if len(non_null) == 0:
-		return False
-	col_type = non_null.type
-	if pa.types.is_integer(col_type):
-		limits = pc.min_max(non_null)
-		return limits["min"].as_py() >= 0 and limits["max"].as_py() <= 1
-	if pa.types.is_floating(col_type):
-		allowed = pa.array([0.0, 1.0], type=col_type)
-		mask = pc.is_in(non_null, value_set=allowed)
-		return bool(pc.all(mask).as_py())
-	return False
+    if isinstance(column, pa.ChunkedArray):
+        column = column.combine_chunks()
+    if len(column) == 0 or column.null_count == len(column):
+        return False
+    non_null = pc.drop_null(column)
+    if len(non_null) == 0:
+        return False
+    col_type = non_null.type
+    if pa.types.is_integer(col_type):
+        limits = pc.min_max(non_null)
+        return limits["min"].as_py() >= 0 and limits["max"].as_py() <= 1
+    if pa.types.is_floating(col_type):
+        allowed = pa.array([0.0, 1.0], type=col_type)
+        mask = pc.is_in(non_null, value_set=allowed)
+        return bool(pc.all(mask).as_py())
+    return False
 
 def _cache_tabular_field_types(dataset_dict):
-	global _cachedFeatureTypeList, _cachedFeatureTypeMap, _cachedClassFieldType
-	_cachedFeatureTypeList = _cachedFeatureTypeMap = None
-	_cachedClassFieldType = None
+    global _cachedFeatureTypeList, _cachedFeatureTypeMap, _cachedClassFieldType
+    _cachedFeatureTypeList = _cachedFeatureTypeMap = None
+    _cachedClassFieldType = None
 
-	if dataset_dict is None:
-		printe("_cache_tabular_field_types error: dataset_dict is None")
-		return
+    if dataset_dict is None:
+        printe("_cache_tabular_field_types error: dataset_dict is None")
+        return
 
-	reference_split = dataset_dict.get(datasetSplitNameTrain)
-	if reference_split is None:
-		printe("_cache_tabular_field_types error: reference_split is None")
-		return
+    reference_split = dataset_dict.get(datasetSplitNameTrain)
+    if reference_split is None:
+        printe("_cache_tabular_field_types error: reference_split is None")
+        return
 
-	if 'features' in reference_split.column_names and len(reference_split.column_names) == 2:
-		printe("_cache_tabular_field_types error: 'features' already consolidated")
-		return
+    if 'features' in reference_split.column_names and len(reference_split.column_names) == 2:
+        printe("_cache_tabular_field_types error: 'features' already consolidated")
+        return
 
-	feature_names = [
-		name for name in reference_split.column_names
-		if name not in (classFieldName, 'features')
-	]
-	if not feature_names:
-		printe("_cache_tabular_field_types error: not feature_names")
-		return
+    feature_names = [
+        name for name in reference_split.column_names
+        if name not in (classFieldName, 'features')
+    ]
+    if not feature_names:
+        printe("_cache_tabular_field_types error: not feature_names")
+        return
 
-	arrow_table = _get_arrow_table(reference_split)
+    arrow_table = _get_arrow_table(reference_split)
 
-	_cachedFeatureTypeList = []
-	_cachedFeatureTypeMap = {}
+    _cachedFeatureTypeList = []
+    _cachedFeatureTypeMap = {}
 
-	for feature_name in feature_names:
-		feature_info = reference_split.features[feature_name]
-		dtype = _extract_feature_dtype(feature_info)
+    for feature_name in feature_names:
+        feature_info = reference_split.features[feature_name]
+        dtype = _extract_feature_dtype(feature_info)
 
-		if dtype in {
-			'float16', 'float32', 'float64',
-			'int8', 'int16', 'int32', 'int64',
-			'uint8', 'uint16', 'uint32', 'uint64'
-		}:
-			idx = arrow_table.schema.get_field_index(feature_name)
-			if idx != -1 and _is_binary_arrow_column(arrow_table.column(idx)):
-				dtype = 'bool'
+        if dtype in {
+            'float16', 'float32', 'float64',
+            'int8', 'int16', 'int32', 'int64',
+            'uint8', 'uint16', 'uint32', 'uint64'
+        }:
+            idx = arrow_table.schema.get_field_index(feature_name)
+            if idx != -1 and _is_binary_arrow_column(arrow_table.column(idx)):
+                dtype = 'bool'
 
-		_cachedFeatureTypeList.append(dtype)
-		_cachedFeatureTypeMap[feature_name] = dtype
+        _cachedFeatureTypeList.append(dtype)
+        _cachedFeatureTypeMap[feature_name] = dtype
 
-	class_info = reference_split.features.get(classFieldName)
-	if class_info is not None:
-		_cachedClassFieldType = _extract_feature_dtype(class_info)
+    class_info = reference_split.features.get(classFieldName)
+    if class_info is not None:
+        _cachedClassFieldType = _extract_feature_dtype(class_info)
 
 def loadDataset():
 	if(useTabularDataset):
@@ -306,7 +310,7 @@ if(useTabularDataset):
 				dataset[datasetSplitNameTest] = equaliseClassSamples(dataset[datasetSplitNameTest])
 
 		_cache_tabular_field_types(dataset)
-
+		
 		if(datasetNormalise):
 			dataset[datasetSplitNameTrain] = normaliseDataset(dataset[datasetSplitNameTrain])
 			dataset[datasetSplitNameTest] = normaliseDataset(dataset[datasetSplitNameTest])
@@ -786,7 +790,7 @@ elif(useNLPDataset):
 		info = get_dataset_config_info(datasetName, datasetCfg)  # tiny JSON download
 		datasetSize = info.splits["train"].num_examples
 		base_stream = load_dataset(datasetName, datasetCfg, split="train", streaming=True, trust_remote_code=True)
-		
+
 		if(stateTestDataset):
 			assert datasetSizeSubset, "loadDatasetNLP error: if stateTestDataset, datasetSizeSubset is required"
 			if(not stateTrainDataset):
@@ -807,7 +811,7 @@ elif(useNLPDataset):
 			eval_rows = int(0)
 			train_stream = base_stream
 			test_stream = None
-			
+
 		print(f"Train size: {train_rows:,}")
 		print(f"Eval size: {eval_rows:,}")
 		global datasetSizeRecord
@@ -817,78 +821,246 @@ elif(useNLPDataset):
 
 		return dataset
 
-	def encode(batch):
-		texts = batch["text"]
-		if useNLPcharacterInput:
-			out_ids = []
-			for txt in texts:
-				if useNLPcharacterInputBasic:
-					txt = txt.lower()
-				ids = []
-				for ch in txt:
-					if ch in _CHAR2ID:
-						ids.append(_CHAR2ID[ch])
-				out_ids.append(ids[:contextSizeMax])   # truncate, no pad yet
-			return {"input_ids": out_ids}
-		else:	
-			global bert_tokenizer, bert_pad_id   # only used in BERT mode
-			if bert_tokenizer is None:
-				bert_tokenizer = AutoTokenizer.from_pretrained(bertModelName, use_fast=True)
-				bert_pad_id	= bert_tokenizer.pad_token_id
-				assert bert_pad_id == NLPcharacterInputPadTokenID
-			enc = bert_tokenizer(texts, truncation=True, max_length=contextSizeMax, padding=False)
-			if(debugOnlyPrintStreamedWikiArticleTitles):
-				print(batch["title"])
-			return enc   # already {"input_ids": [...], ...}
+	if(useNLPDatasetMultipleTokenisation):
+		def encode(batch):
+			"""
+			Returns per-text dictionaries with
+				if(useNLPcharacterInput):
+	    			char_input_ids  : List[int]
+				else:
+	    			bert_input_ids  : List[int]
+	    			bert_offsets    : List[(start,end)]      (char alignment)
+	    		spacy_input_ids : List[int]              (orth IDs)
+	    		spacy_pos       : List[int]              (POS enum)
+	    		spacy_tag       : List[int]              (TAG enum)
+	    		spacy_offsets   : List[(start,end)]
+			"""
+			global bert_tokenizer, bert_pad_id
+
+			texts = batch["text"]
 			
-	def collate(batch):
-		# batch_size==1 in your new set-up but keep it generic
-		seqs   = [item for item in batch]
-		pad_id = NLPcharacterInputPadTokenID
-		max_L  = max(len(s) for s in seqs)
-		padded = pt.full((len(seqs), max_L), pad_id, dtype=pt.long)
-		for i, s in enumerate(seqs):
-			padded[i, : len(s)] = s
-		x = padded
-		y = padded	 # no target yet (redundant)
-		return x, y
+			if(useNLPDatasetMultipleTokenisationBert):
+				if bert_tokenizer is None:
+					bert_tokenizer = AutoTokenizer.from_pretrained(bertModelName, use_fast=True)
+					bert_pad_id = bert_tokenizer.pad_token_id
+				enc = bert_tokenizer(
+					texts,
+					truncation=True,
+					max_length=contextSizeMaxBertTokens,
+					padding=True,
+					return_offsets_mapping=True,
+				)
+				
+			out = defaultdict(list)
+			for i, txt in enumerate(texts):
+			
+				if(useNLPDatasetMultipleTokenisationChar):
+					# --- characters ---
+					char_ids = [ _CHAR2ID[ch] for ch in (txt.lower() if useNLPcharacterInputBasic else txt)
+		            			 if ch in _CHAR2ID ][:contextSizeMaxCharacters]
+					out["char_input_ids"].append(char_ids)
+				if(useNLPDatasetMultipleTokenisationBert):
+					# --- BERT ---
+					out["bert_input_ids"].append(enc["input_ids"][i])
+					out["bert_offsets"].append(enc["offset_mapping"][i])
+				if(useNLPDatasetMultipleTokenisationSpacy):
+					# --- spaCy ---
+					doc = nlp(txt)
+					sp_ids = [to_int64(tok.orth) for tok in doc][:contextSizeMaxSpacyTokens]	#tok.lex_id gives -1 for all tokens (require to link a lexeme/vector cache)	#posStringToPosInt(nlp, tok.text) appears equivalent to tok.orth
+					sp_pos = [to_int64(int(tok.pos)) for tok in doc][:contextSizeMaxSpacyTokens]		#sp_pos = [to_uint64(to_int64(int(tok.pos)))    for tok in doc][:contextSizeMaxSpacyTokens]
+					sp_tag = [to_int64(tok.tag) for tok in doc][:contextSizeMaxSpacyTokens]
+					sp_text = [tok.text for tok in doc][:contextSizeMaxSpacyTokens]
+					sp_off = [ (tok.idx, tok.idx+len(tok)) for tok in doc][:contextSizeMaxSpacyTokens]
+					#print("sp_ids = ", sp_ids)
+					out["spacy_input_ids"].append(sp_ids)
+					out["spacy_pos"].append(sp_pos)
+					out["spacy_tag"].append(sp_tag)
+					out["spacy_text"].append(sp_text)
+					out["spacy_offsets"].append(sp_off)
 
-	class RawSampleDataset(TorchIterableDataset):
-		 """
-		 Pass-through: yields one dict {'input_ids': Tensor[seq_len]} per article.
-		 No left-shift / crop logic here any more.
-		 """
-		 def __init__(self, hf_iterable):
-			 super().__init__()
-			 self.hf_ds = hf_iterable
+			return out
 
-		 def __iter__(self):
-			 for art in self.hf_ds:
-				 ids = art["input_ids"]
-				 if not isinstance(ids, pt.Tensor):
-					 ids = pt.tensor(ids, dtype=pt.long)
-				 yield ids
+		def to_int64(u):   
+			# Fit into signed-64 range so torch.tensor() never overflows                             
+		 	# keep sign if already < 2^63
+			return u if u < (1 << 63) else u - (1 << 64) # two\u2019s-complement wrap
+						
+		def to_uint64(s):
+			"""
+			Given a signed 64-bit integer produced by `to_int64`, return the
+			original unsigned 64-bit value (0 \u2264 u < 2**64).
+
+			>>> u = 2**63 + 123            # any 64-bit unsigned value
+			>>> s = to_int64(u)            # -9223372036854775685
+			>>> to_uint64(s) == u
+			True
+			"""
+			return s if s >= 0 else s + (1 << 64)
 	
+		def collate(batch):
+			B = len(batch)
+			# helper -------------------------------------------------------------
+			def pad1d(seqs, pad_id, L=None):
+				L = contextSizeMaxCharacters if L is None else L
+				out = pt.full((B, L), pad_id, dtype=pt.long)
+				for i, s in enumerate(seqs):
+					s = s[:L]
+					out[i, :len(s)] = pt.tensor(s, dtype=pt.long)
+				return out
+			def pad2d(seqs, L=None):				# for offset pairs
+				L = contextSizeMaxCharacters if L is None else L
+				out = pt.full((B, L, 2), -1, dtype=pt.long)
+				for i, s in enumerate(seqs):
+					s = s[:L]
+					out[i, :len(s)] = pt.tensor(s, dtype=pt.long)
+				return out
+			PAD_STR  = "<PAD>"   # or "" if you prefer blank
+			PAD_INT  = 0         # same pad id you used before
+			def pad_text(seqs, pad_token=PAD_STR, L=None):  # <- NEW helper for strings
+				L = contextSizeMaxCharacters if L is None else L
+				padded = []
+				for s in seqs:
+					s = s[:L]
+					padded.append(s + [pad_token]*(L-len(s)))
+				return padded   # list-of-lists
+			# -------------------------------------------------------------------
+			if(useNLPDatasetMultipleTokenisationChar):
+				char_ids   = pad1d([s["char_input_ids"]   for s in batch], NLPpadTokenID, L=contextSizeMaxCharacters)
+			if(useNLPDatasetMultipleTokenisationBert):
+				bert_ids   = pad1d([s["bert_input_ids"]   for s in batch], bert_pad_id, L=contextSizeMaxBertTokens)
+				bert_off   = pad2d([s["bert_offsets"]     for s in batch], L=contextSizeMaxBertTokens)
+			if(useNLPDatasetMultipleTokenisationSpacy):
+				spacy_ids  = pad1d([s["spacy_input_ids"]  for s in batch], 0, L=contextSizeMaxSpacyTokens)
+				spacy_pos  = pad1d([s["spacy_pos"]        for s in batch], 0, L=contextSizeMaxSpacyTokens)
+				spacy_tag  = pad1d([s["spacy_tag"]        for s in batch], 0, L=contextSizeMaxSpacyTokens)
+				spacy_text = pad_text([s["spacy_text"] for s in batch], L=contextSizeMaxSpacyTokens)
+				spacy_off  = pad2d([s["spacy_offsets"]    for s in batch], L=contextSizeMaxSpacyTokens)
+
+			x = {}
+			if(useNLPDatasetMultipleTokenisationChar):
+				x = x | {
+					"char_input_ids" : char_ids,
+					}
+			if(useNLPDatasetMultipleTokenisationBert):
+				x = x | {
+					"bert_input_ids" : bert_ids,
+					"bert_offsets"   : bert_off,
+				}
+			if(useNLPDatasetMultipleTokenisationSpacy):
+				x = x | {
+					"spacy_input_ids": spacy_ids,
+					"spacy_pos"      : spacy_pos,
+					"spacy_tag"      : spacy_tag,
+					"spacy_text"     : spacy_text,
+					"spacy_offsets"  : spacy_off,
+				}
+					
+			y = None	#dynamically extracted from x
+			return x, y
+
+		class RawSampleDataset(TorchIterableDataset):
+			"""
+			Pass-through: yields one dict {'input_ids': Tensor[seq_len]} per article.
+			No left-shift / crop logic here any more.
+			"""
+			def __init__(self, hf_iterable):
+				super().__init__()
+				self.hf_ds = hf_iterable
+
+			def __iter__(self):
+				for art in self.hf_ds:                          # art is already a dict from encode_multi
+					yield art
+
+			''' 
+			if(useNLPDatasetMultipleTokenisationChar):
+				"char_input_ids" : (B, Lc),
+			if(useNLPDatasetMultipleTokenisationBert):
+				"bert_input_ids" : (B, Lb),
+				"bert_offsets"   : (B, Lb, 2),
+			if(useNLPDatasetMultipleTokenisationSpacy):
+				"spacy_input_ids": (B, Ls),
+				"spacy_pos"      : (B, Ls),
+				"spacy_tag"      : (B, Ls),
+				"spacy_text"      : (B, Ls),
+				"spacy_offsets"  : (B, Ls, 2),
+			'''
+	else:
+		def encode(batch):
+			texts = batch["text"]
+			if useNLPcharacterInput:
+				out_ids = []
+				for txt in texts:
+					if useNLPcharacterInputBasic:
+						txt = txt.lower()
+					ids = []
+					for ch in txt:
+						if ch in _CHAR2ID:
+							ids.append(_CHAR2ID[ch])
+					out_ids.append(ids[:contextSizeMax])   # truncate, no pad yet
+				return {"input_ids": out_ids}
+			else:	
+				global bert_tokenizer, bert_pad_id   # only used in BERT mode
+				if bert_tokenizer is None:
+					bert_tokenizer = AutoTokenizer.from_pretrained(bertModelName, use_fast=True)
+					bert_pad_id	= bert_tokenizer.pad_token_id
+					assert bert_pad_id == NLPpadTokenID
+				enc = bert_tokenizer(texts, truncation=True, max_length=contextSizeMax, padding=False)
+				if(debugOnlyPrintStreamedWikiArticleTitles):
+					print(batch["title"])
+				return enc   # already {"input_ids": [...], ...}
+
+		def collate(batch):
+			# batch_size==1 in your new set-up but keep it generic
+			seqs   = [item for item in batch]
+			pad_id = NLPpadTokenID
+			max_L  = max(len(s) for s in seqs)
+			padded = pt.full((len(seqs), max_L), pad_id, dtype=pt.long)
+			for i, s in enumerate(seqs):
+				padded[i, : len(s)] = s
+			x = padded
+			y = padded	 # no target yet (redundant)
+			return x, y
+
+		class RawSampleDataset(TorchIterableDataset):
+			 """
+			 Pass-through: yields one dict {'input_ids': Tensor[seq_len]} per article.
+			 No left-shift / crop logic here any more.
+			 """
+			 def __init__(self, hf_iterable):
+				 super().__init__()
+				 self.hf_ds = hf_iterable
+
+			 def __iter__(self):
+				 for art in self.hf_ds:
+					 ids = art["input_ids"]
+					 if not isinstance(ids, pt.Tensor):
+						 ids = pt.tensor(ids, dtype=pt.long)
+					 yield ids
+					 	
 	def createDataLoaderNLP(dataset: "Dataset | HFDIterable"):
 		"""Return DataLoader that yields (x, y) batches per the spec above."""
-		
+
 		ds_tok = dataset.map(encode, batched=True, remove_columns=dataset.column_names)
 		ds_tok = ds_tok.with_format("torch")
 
 		# If the result is map-style convert it, otherwise keep it as-is
 		if isinstance(ds_tok, HFDIterable):
-			ds_iter = ds_tok                      # already iterable -> nothing to do
+			if(dataloaderShuffle):
+				ds_iter = ds_tok.shuffle(seed=dataloaderShuffleSeed, buffer_size=dataloaderShuffleSeedBufferSize)
+			else:
+				ds_iter = ds_tok                      # already iterable -> nothing to do
 		else:
+			if(dataloaderShuffle):
+				ds_tok = ds_tok.shuffle(seed=dataloaderShuffleSeed)
 			ds_iter = ds_tok.to_iterable_dataset()   # map-style -> convert
 
 		ds = RawSampleDataset(ds_iter)
-		
+
 		loader = DataLoader(ds, batch_size=batchSize, collate_fn=collate, num_workers=numWorkers, pin_memory=pt.cuda.is_available())
 
 		return loader
-
-	if(useNLPcharacterInput):
-	
+		
+	if(useNLPDatasetMultipleTokenisation and useNLPDatasetMultipleTokenisationChar):
 		def ascii_printable_with_whitespace() -> list[str]:
 			"""
 			Return ASCII chars 0-127 with all control codes removed
@@ -910,14 +1082,15 @@ elif(useNLPDataset):
 
 		def _build_char_tables():
 			if useNLPcharacterInputBasic:
-				table = {c: i+1 for i, c in enumerate(NLPcharacterInputBasicSet)}  # 0 reserved for PAD (NLPcharacterInputPadTokenID)
+				table = {c: i+1 for i, c in enumerate(NLPcharacterInputBasicSet)}  # 0 reserved for PAD (NLPpadTokenID)
 				rev   = {i+1: c for i, c in enumerate(NLPcharacterInputBasicSet)}
 			else:
 				# Drop all control codes (0-31, 127) but keep whitespace
 				allowed = ascii_printable_with_whitespace()
-				assert len(allowed) == NLPcharacterInputSetLen-1	# -1 explanation; 0 reserved for PAD (NLPcharacterInputPadTokenID)
-				table = {c: idx+1 for idx, c in enumerate(allowed)}	 #0 reserved for PAD (NLPcharacterInputPadTokenID)
+				assert len(allowed) == NLPcharacterInputSetLen-1	# -1 explanation; 0 reserved for PAD (NLPpadTokenID)
+				table = {c: idx+1 for idx, c in enumerate(allowed)}	 #0 reserved for PAD (NLPpadTokenID)
 				rev   = {idx+1: c for idx, c in enumerate(allowed)}
 			return table, rev
 
 		_CHAR2ID, _ID2CHAR = _build_char_tables()
+

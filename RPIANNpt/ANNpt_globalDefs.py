@@ -30,6 +30,8 @@ useAlgorithmEISANI = False
 useAlgorithmAEANN = False
 useAlgorithmRPIANN = True
 useAlgorithmANN = False
+useAlgorithmSUANN = False
+useAlgorithmATNLP = False
 
 #train/test vars;
 stateTrainDataset = True
@@ -42,11 +44,14 @@ saveModelTrainContinuous = True
 useCloudExecution = False	#jupyter notebook does not support long cmd output
 if(useCloudExecution):
 	relativeFolderLocations = True
-	debugPrintGPUusage = False
+	debugPrintGPUusage = True
 else:
 	relativeFolderLocations = False
 	debugPrintGPUusage = False
-	
+
+#initialise (dependent vars);
+useNLPDatasetMultipleTokenisation = False
+
 #initialise (dependent vars);
 usePairedDataset = False
 datasetNormalise = False
@@ -62,6 +67,7 @@ dataloaderNumWorkers = 4
 dataloaderPinMemory = True
 
 optimiserAdam = True
+useCustomLearningAlgorithm = False	#disable all backprop optimisers
 
 #initialise (dependent vars);
 useCustomWeightInitialisation = False
@@ -105,8 +111,9 @@ dropoutProb = 0.5 	#default: 0.5	#orig: 0.3
 
 #initialise (dependent vars);
 debugSmallNetwork = False
-trainNumberOfEpochsHigh = False
 hiddenLayerSizeHigh = False
+trainNumberOfEpochsHigh = False
+trainNumberOfEpochsLow = False
 numberOfLayersLow = False
 inputLayerInList = True
 outputLayerInList = True
@@ -186,6 +193,12 @@ elif(useAlgorithmRPIANN):
 elif(useAlgorithmANN):
 	from ANNpt_ANN_globalDefs import *
 	#useTabularDataset/useImageDataset is defined by ANNpt_ANN_globalDefs
+elif(useAlgorithmSUANN):
+	from LREANNpt_SUANN_globalDefs import *
+	#useTabularDataset/useImageDataset is defined by LREANNpt_SUANN_globalDefs
+elif(useAlgorithmATNLP):
+	from ATNLPpt_ATNLP_globalDefs import *
+	#useNLPDataset is defined by ATNLPpt_ATNLP_globalDefs
 	
 if(useCustomWeightInitialisation):
 	Wmean = 0.0
@@ -414,7 +427,7 @@ elif(useImageDataset):
 			numberOfFFLayers = numberOfFFLayers*2
 		numberOfLayers = numberOfConvlayers+numberOfFFLayers	#counts hidden and output layers (not input layer)
 	elif(useAlgorithmRPIANN):
-		batchSize = 1024	#1024	#128	 #default: 128	#orig: 64
+		batchSize = 1024	#128	 #default: 128	#orig: 64
 	else:
 		batchSize = 128	 #default: 128	#orig: 64
 		numberOfConvlayers = 6	#rest will be FF	#orig: 2	#default: 2, 4, 6
@@ -449,11 +462,24 @@ elif(useNLPDataset):
 	datasetTestRows = int(datasetTrainRows*0.1)	#*datasetTestSplitSize
 	numWorkers = 0	#default: 0	(required for stateTestDataset:datasetTestRows to be enforced) #orig = 2	#set numWorkers=1 for simplify dataset determinism during streaming (numWorkers=2 will alternate between selecting articles from wikipedia dataset shard N and shard N+1)
 	batchSize = 16	#default: 16	#debug: 1
-	datasetName = "wikipedia"
-	datasetCfg = "20220301.en"	#not available in conda; "20231101.en", not available in huggingface; "20240501.en"
+	if(useCloudExecution):
+		datasetName = "wikimedia/wikipedia"
+		datasetCfg = "20231101.en"
+	else:
+		datasetName = "wikipedia"
+		datasetCfg = "20220301.en"	#not available in conda; "20231101.en", not available in huggingface; "20240501.en"
 	datasetHasTestSplit = False
 	trainNumberOfEpochs = 1	#default: 1	#with increased epochs can significantly increase train accuracy on train dataset (though should theoretically have no effect on test accuracy)
-	
+	if(useAlgorithmATNLP):
+		B1 = batchSize
+		#B2 is encapsulates the number of normalisations (sets of 2 keypoints); either b) B1*r or c) B1*r*(q-1).
+		B2 = B1*S
+	dataloaderShuffle = False	#default: False	#experimental
+	if(dataloaderShuffle):
+		import random
+		dataloaderShuffleSeed = random.randint(0, 2**32 - 1)
+		dataloaderShuffleSeedBufferSize = 1000		# small in-memory buffer for iterable streams
+		
 def round_up_to_power_of_2(x: float) -> int:
 	if x <= 0:
 		raise ValueError("x must be positive")
@@ -477,11 +503,13 @@ if(useAlgorithmEISANI):
 			numberOfLayers = numberOfLayers*2
 else:
 	if(trainNumberOfEpochsHigh):
-		trainNumberOfEpochs = trainNumberOfEpochs*4	#default: trainNumberOfEpochs*4
+		trainNumberOfEpochs = trainNumberOfEpochs*4	#orig*4
 	if(hiddenLayerSizeHigh):
 		hiddenLayerSize = hiddenLayerSize*4
 	if(numberOfLayersLow):
 		numberOfLayers = 1
+	if(trainNumberOfEpochsLow):
+		trainNumberOfEpochs = 1
 		
 if(debugSmallBatchSize):
 	batchSize = 10

@@ -32,6 +32,20 @@ if(useRPICNN):
 if(useProjectionAutoencoder):
 	import RPIANNpt_RPIANNmodelAutoencoder
 
+if(useNLPDataset):
+	from transformers import AutoModel
+
+_BERT_EMBEDDING_CACHE = {}
+def _load_pretrained_bert_embeddings(model_name):
+	if(model_name in _BERT_EMBEDDING_CACHE):
+		return _BERT_EMBEDDING_CACHE[model_name]
+	if(AutoModel is None):
+		raise ImportError("transformers.AutoModel is required for pretrained BERT embeddings but is not available.")
+	model = AutoModel.from_pretrained(model_name)
+	with pt.no_grad():
+		weight = model.embeddings.word_embeddings.weight.detach().clone()
+	_BERT_EMBEDDING_CACHE[model_name] = weight
+	return weight
 
 class RPIANNconfig():
 	def __init__(self, batchSize, numberOfLayers, numberOfConvlayers, hiddenLayerSize, CNNhiddenLayerSize, inputLayerSize, outputLayerSize, linearSublayersNumber, numberOfFeatures, numberOfClasses, datasetSize, numberOfClassSamples, inputImageShape=None, class_exemplar_images=None):
@@ -50,6 +64,14 @@ class RPIANNconfig():
 		self.numberOfClassSamples = numberOfClassSamples
 		self.inputImageShape = inputImageShape
 		self.class_exemplar_images = class_exemplar_images
+
+class Loss:
+	def __init__(self, value=0.0):
+		self._value = value
+
+	def item(self):
+		return self._value
+
 
 class RPIANNmodel(nn.Module):
 		
@@ -71,24 +93,31 @@ class RPIANNmodel(nn.Module):
 		self.using_input_image_projection = useCNNinputProjection
 		self.using_target_image_projection = useCNNtargetProjection
 		self.using_rpi_cnn = useRPICNN
+		self.using_nlp_token_inputs = useNLPDataset
+		if(self.using_nlp_token_inputs):
+			self._pad_token_id = NLPpadTokenID
+			self.input_embedding_dim = inputEmbeddingSize
+			self.target_embedding_dim = targetEmbeddingSize
 		if(self.using_input_image_projection):
 			self.use_linear_input_projection = False
+		elif(self.using_nlp_token_inputs):
+			self.use_linear_input_projection = False
 		else:
-			self.use_linear_input_projection = bool(useInputProjection)
-		self.useProjectionAutoencoder = bool(useProjectionAutoencoder)
+			self.use_linear_input_projection = useInputProjection
+		self.useProjectionAutoencoder = useProjectionAutoencoder
 		if(self.useProjectionAutoencoder):
-			self.useProjectionAutoencoderIndependent = bool(useProjectionAutoencoderIndependent)
-			self.input_projection_autoencoder = bool(inputProjectionAutoencoder)
-			self.input_autoencoder_independent = bool(inputProjectionAutoencoderIndependent)
-			self.target_projection_autoencoder = bool(targetProjectionAutoencoder)
-			self.target_autoencoder_independent = bool(targetProjectionAutoencoderIndependent)
-			self.projection_autoencoder_independent_separate = bool(projectionAutoencoderIndependentSeparateTrainPhases)
+			self.useProjectionAutoencoderIndependent = useProjectionAutoencoderIndependent
+			self.input_projection_autoencoder = inputProjectionAutoencoder
+			self.input_autoencoder_independent = inputProjectionAutoencoderIndependent
+			self.target_projection_autoencoder = targetProjectionAutoencoder
+			self.target_autoencoder_independent = targetProjectionAutoencoderIndependent
+			self.projection_autoencoder_independent_separate = projectionAutoencoderIndependentSeparateTrainPhases
 			self.projection_autoencoder_phase = "both"
 			self.projection_autoencoder_warmup_epochs = projectionAutoencoderWarmupEpochs
 			self.projection_autoencoder_noise_std = projectionAutoencoderDenoisingStd
 			self.projection_autoencoder_pretrain_epochs = projectionAutoencoderPretrainEpochs
-			self.use_projection_autoencoder_vicreg = bool(projectionAutoencoderVICReg)
-			self.use_projection_autoencoder_vicreg_contrastive = bool(projectionAutoencoderVICRegContrastiveLoss)
+			self.use_projection_autoencoder_vicreg = projectionAutoencoderVICReg
+			self.use_projection_autoencoder_vicreg_contrastive = projectionAutoencoderVICRegContrastiveLoss
 			if(projectionAutoencoderVICReg):
 				self.projection_autoencoder_vicreg_lambda = projectionAutoencoderVICRegLambda
 				self.projection_autoencoder_vicreg_mu = projectionAutoencoderVICRegMu
@@ -115,21 +144,21 @@ class RPIANNmodel(nn.Module):
 			self._x_feature_size = None
 		self._y_feature_size = self.embedding_dim
 
-		if(self.using_input_image_projection):
-			if(self.using_rpi_cnn):
-				self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
-				self._x_feature_shape = feature_shape
-				self._y_feature_shape = RPIANNpt_RPIANNmodelCNNprojection.determine_cnn_feature_shape(self, config, projection_stride)
-				self._x_feature_size = self._feature_size(self._x_feature_shape)
-				self._y_feature_size = self._feature_size(self._y_feature_shape)
+		if(useImageDataset):
+			if(self.using_input_image_projection):
+				if(self.using_rpi_cnn):
+					self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
+					self._x_feature_shape = feature_shape
+					self._y_feature_shape = RPIANNpt_RPIANNmodelCNNprojection.determine_cnn_feature_shape(self, config, projection_stride)
+					self._x_feature_size = self._feature_size(self._x_feature_shape)
+					self._y_feature_size = self._feature_size(self._y_feature_shape)
+				else:
+					self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
+					self._x_feature_shape = feature_shape
+					self._y_feature_shape = feature_shape
+					self._x_feature_size = self._feature_size(feature_shape)
+					self._y_feature_size = self._x_feature_size
 			else:
-				self.input_projection, feature_shape = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
-				self._x_feature_shape = feature_shape
-				self._y_feature_shape = feature_shape
-				self._x_feature_size = self._feature_size(feature_shape)
-				self._y_feature_size = self._x_feature_size
-		else:
-			if(useImageDataset):	
 				self._x_feature_shape = tuple(config.inputImageShape)
 				input_flat_features = self._feature_size(self._x_feature_shape)
 				if(self.using_rpi_cnn):
@@ -152,43 +181,57 @@ class RPIANNmodel(nn.Module):
 					self._x_feature_size = self.embedding_dim
 				else:
 					self.input_projection = nn.Sequential(nn.Flatten(start_dim=1))
-			else:
-				if(self.use_linear_input_projection):
-					self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
-					self._initialise_random_linear(self.input_projection)
-					self._x_feature_size = self.embedding_dim
-					if(self.useProjectionAutoencoder and self.input_projection_autoencoder):
-						RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, config.inputLayerSize)
-					else:
-						self.input_projection.weight.requires_grad_(False)
+			exemplar_flat_size = None
+			if(self.use_target_exemplar_projection):
+				exemplar_images = config.class_exemplar_images
+				if exemplar_images is None:
+					raise ValueError("targetProjectionExemplarImage=True requires exemplar images in the configuration.")
+				if not isinstance(exemplar_images, pt.Tensor):
+					exemplar_images = pt.as_tensor(exemplar_images, dtype=pt.float32)
+				exemplar_images = exemplar_images.clone().detach().to(dtype=pt.float32)
+				if exemplar_images.ndim != 4:
+					raise ValueError("Class exemplar images must be a tensor of shape [num_classes, channels, height, width].")
+				if exemplar_images.shape[0] != config.numberOfClasses:
+					raise ValueError("Number of exemplar images must match number of classes.")
+				self.register_buffer("class_exemplar_images", exemplar_images)
+				exemplar_flat_size = self._feature_size(tuple(exemplar_images.shape[1:]))
+		elif(useTabularDataset):	
+			if(self.use_linear_input_projection):
+				self.input_projection = nn.Linear(config.inputLayerSize, self.embedding_dim, bias=False)
+				self._initialise_random_linear(self.input_projection)
+				self._x_feature_size = self.embedding_dim
+				if(self.useProjectionAutoencoder and self.input_projection_autoencoder):
+					RPIANNpt_RPIANNmodelAutoencoder.configure_input_projection_autoencoder(self, config.inputLayerSize)
 				else:
-					self.input_projection = nn.Identity()
-					self._x_feature_size = config.inputLayerSize
-
-		exemplar_flat_size = None
-		if(self.use_target_exemplar_projection):
-			exemplar_images = config.class_exemplar_images
-			if exemplar_images is None:
-				raise ValueError("targetProjectionExemplarImage=True requires exemplar images in the configuration.")
-			if not isinstance(exemplar_images, pt.Tensor):
-				exemplar_images = pt.as_tensor(exemplar_images, dtype=pt.float32)
-			exemplar_images = exemplar_images.clone().detach().to(dtype=pt.float32)
-			if exemplar_images.ndim != 4:
-				raise ValueError("Class exemplar images must be a tensor of shape [num_classes, channels, height, width].")
-			if exemplar_images.shape[0] != config.numberOfClasses:
-				raise ValueError("Number of exemplar images must match number of classes.")
-			self.register_buffer("class_exemplar_images", exemplar_images)
-			exemplar_flat_size = self._feature_size(tuple(exemplar_images.shape[1:]))
-
+					self.input_projection.weight.requires_grad_(False)
+			else:
+				self.input_projection = nn.Identity()
+				self._x_feature_size = config.inputLayerSize
+		elif(useNLPDataset):	
+			if(self.using_nlp_token_inputs):
+				vocab_size = self.config.outputLayerSize
+				use_pretrained_input = useInputPretrainedBertEmbedding
+				self.input_projection = self._build_token_embedding(vocab_size, self.input_embedding_dim, use_pretrained=use_pretrained_input)
+				if(useSlidingWindow):
+					self._x_feature_size = self.input_projection.embedding_dim + self.embedding_dim	# account for concatenated prevZ
+				else:
+					self._x_feature_size = self.input_projection.embedding_dim
+				self.input_projection.weight.requires_grad_(False)
+		self.using_token_target_projection = self.using_nlp_token_inputs
+											
 		def _make_target_projection_module():
 			if(self.using_target_image_projection):
 				projection_module, _ = RPIANNpt_RPIANNmodelCNNprojection.build_image_projection(self, config, stride=projection_stride, trainable=False)
 				return projection_module
-			if(self.use_target_exemplar_projection):
+			elif(self.use_target_exemplar_projection):
 				assert exemplar_flat_size is not None
 				linear_projection = self._build_linear_target_projection(exemplar_flat_size)
 				return nn.Sequential(nn.Flatten(start_dim=1), linear_projection)
-			return self._build_linear_target_projection(config.outputLayerSize)
+			elif(self.using_token_target_projection):
+				use_pretrained_target = bool(globals().get("useTargetPretrainedBertEmbedding", False))
+				return self._build_token_embedding(config.outputLayerSize, self.target_embedding_dim, use_pretrained=use_pretrained_target, trainable=self.train_classification_layer)
+			else:
+				return self._build_linear_target_projection(config.outputLayerSize)
 
 		if self.target_projection_unique_per_layer:
 			projection_count = self.recursion_steps
@@ -275,7 +318,12 @@ class RPIANNmodel(nn.Module):
 		if(useClassificationLayerLoss):
 			self.embedding_loss_weight = 0.1
 
-		self.lossFunctionFinal = nn.CrossEntropyLoss()
+		if(useNLPDataset):
+			cross_entropy_kwargs = {"reduction": "none"}
+			cross_entropy_kwargs["ignore_index"] = self._pad_token_id
+			self.lossFunctionFinal = nn.CrossEntropyLoss(**cross_entropy_kwargs)
+		else:
+			self.lossFunctionFinal = nn.CrossEntropyLoss()
 		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
 		self.last_Z = None
 		self.last_logits = None
@@ -311,6 +359,14 @@ class RPIANNmodel(nn.Module):
 		std = 1.0 / math.sqrt(module.out_features)
 		nn.init.normal_(module.weight, mean=0.0, std=std)
 
+	def _initialise_random_embedding(self, embedding_module):
+		std = 1.0 / math.sqrt(embedding_module.embedding_dim)
+		with pt.no_grad():
+			nn.init.normal_(embedding_module.weight, mean=0.0, std=std)
+			padding_idx = getattr(embedding_module, "padding_idx", None)
+			if(padding_idx is not None and 0 <= padding_idx < embedding_module.weight.shape[0]):
+				embedding_module.weight[padding_idx].zero_()
+
 	def _build_linear_target_projection(self, in_features):
 		linear_module = nn.Linear(in_features, self.embedding_dim, bias=False)
 		self._initialise_random_linear(linear_module)
@@ -319,6 +375,41 @@ class RPIANNmodel(nn.Module):
 		if(targetProjectionSparse):
 			self._apply_target_projection_sparsity(linear_module)
 		return linear_module
+
+	def _build_token_embedding(self, vocab_size, embedding_dim, use_pretrained=False, trainable=False):
+		pad_idx = self._pad_token_id if(self._pad_token_id is not None) else None
+		embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
+		if(use_pretrained):
+			bert_name = globals().get("bertModelName", "bert-base-uncased")
+			pretrained_weight = _load_pretrained_bert_embeddings(bert_name)
+			if(pretrained_weight.shape[0] < vocab_size):
+				raise ValueError(f"Pretrained BERT vocabulary ({pretrained_weight.shape[0]}) smaller than required size ({vocab_size}).")
+			if(pretrained_weight.shape[1] != embedding_dim):
+				raise ValueError(f"Pretrained BERT embedding dimension ({pretrained_weight.shape[1]}) does not match configured size ({embedding_dim}).")
+			with pt.no_grad():
+				embedding.weight[:vocab_size] = pretrained_weight[:vocab_size]
+				if(pad_idx is not None and pad_idx < embedding.weight.shape[0]):
+					embedding.weight[pad_idx].zero_()
+		else:
+			self._initialise_random_embedding(embedding)
+		embedding.weight.requires_grad_(trainable)
+		return embedding
+
+	def _masked_mse(self, prediction, target, valid_mask=None):
+		if(valid_mask is None):
+			return F.mse_loss(prediction, target)
+		if(prediction.shape != target.shape):
+			raise ValueError(f"Mismatched shapes for masked MSE: {prediction.shape} vs {target.shape}.")
+		mask = valid_mask.to(dtype=pt.bool)
+		if(prediction.shape[0] != mask.shape[0]):
+			raise ValueError("Mask batch dimension does not align with prediction batch dimension.")
+		mask = mask.unsqueeze(-1).expand_as(prediction)
+		valid_elements = mask.sum().item()
+		if(valid_elements == 0):
+			return prediction.new_tensor(0.0)
+		diff = prediction - target
+		squared = diff.pow(2)
+		return squared.masked_select(mask).mean()
 
 	def _apply_target_projection_sparsity(self, module):
 		if(targetProjectionSparsityLevel < 0.0 or targetProjectionSparsityLevel >= 1.0):
@@ -342,35 +433,124 @@ class RPIANNmodel(nn.Module):
 		return channels * height * width
 			
 	def forward(self, trainOrTest, x, y, optim, layer=None):
+	
 		if(trainOrTest and self._should_run_projection_autoencoders()):
 			RPIANNpt_RPIANNmodelAutoencoder.train_autoencoders(self, x, y)
-		x_embed = self.encode_input(x)
-		target_embeddings = self.encode_targets(y)
-		final_step_index = max(0, self.recursion_steps - 1)
-
-		if(trainOrTest and trainLocal):
-			x_embed = x_embed.detach()
-			target_embeddings = target_embeddings.detach()
-			Z = self._iterate_local(x_embed, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
-			with pt.no_grad():
-				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-				total_loss, logits, classification_loss, embedding_alignment_loss, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
-			loss = total_loss.detach()
-			accuracy = self.accuracyFunction(logits, y)
-			self.last_Z = activated_Z.detach()
-			self.last_logits = logits.detach()
-			return loss, accuracy
+	
+		if(useSlidingWindow):
+			x = x.to(device)
+			# --- updated for full-batch processing ---
+			seq	= x	# Tensor [batchSize, sequenceLength]
+			current_batch_size = seq.size(0)
+			non_pad	= (seq != NLPcharacterInputPadTokenID)		# [B, L]
+			if not pt.any(non_pad):
+				return
+			lengths	= non_pad.sum(-1)							# [B]
+			max_len = int(lengths.max().item())
+			numSubsamples = max(1, max_len - 1)				# predict *next* token only
+			extra = contextSizeMax - lengths					# [B]
 		else:
-			if(trainOrTest):
-				x_embed = x_embed.requires_grad_()
-			target_embeddings = target_embeddings.detach()
-			final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
-			Z = self._iterate_nonlocal(x_embed, train_final_only=trainOrTest and trainFinalIterationOnly)
-			total_loss, logits, _, _, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
-			accuracy = self.accuracyFunction(logits, y)
-			self.last_Z = activated_Z.detach()
-			self.last_logits = logits.detach()
-			return total_loss, accuracy
+			numSubsamples = 1
+			
+		total_correct_tokens = 0
+		total_valid_tokens = 0
+		average_loss = None
+		average_accuracy = None
+		lossAllWindows = None
+		lossWeightTotal = 0
+		for slidingWindowIndex in range(numSubsamples):
+			if(debugSequentialLoops):
+				print("\n************************** slidingWindowIndex = ", slidingWindowIndex)
+			
+			# -----------------------------
+			# Apply sliding window (sequence input only)
+			# -----------------------------
+			if(useSlidingWindow):
+				# --- one-token sliding window: output shape = [B,1] ---
+				token_idx = slidingWindowIndex								# scalar int
+				idx = pt.full((current_batch_size, 1), token_idx, dtype=pt.long, device=device)
+				gather_idx = idx.clamp(max=seq.size(1) - 1)
+				next_idx = pt.full((current_batch_size, 1), token_idx + 1, dtype=pt.long, device=device)
+				next_idx_clamped = next_idx.clamp(max=seq.size(1) - 1)
+				# current token
+				x_shift = seq.gather(1, gather_idx)						# [B,1]
+				# next-token target
+				y_shift = seq.gather(1, next_idx_clamped).squeeze(1)		# [B]
+				# zero-out positions past true length
+				invalid_x	= (token_idx >= lengths).unsqueeze(1)			# [B,1]
+				invalid_y	= (token_idx + 1 >= lengths)					# [B]
+				x_shift[invalid_x] = NLPcharacterInputPadTokenID
+				y_shift[invalid_y] = NLPcharacterInputPadTokenID
+				x = x_shift											# [B,1]
+				y = y_shift											# [B]
+				
+			x_embed = self.encode_input(x)
+			target_embeddings = self.encode_targets(y)
+			final_step_index = max(0, self.recursion_steps - 1)
+			
+			reference_embed = x_embed
+			if(initialiseZzero):	#OLD: or reference_embed.shape[1] != self._y_feature_size
+				Z = self._zero_Z_like(reference_embed)
+			else:
+				Z = reference_embed
+				
+			if(useSlidingWindow):
+				if(slidingWindowIndex == 0):
+					prevZ = self._zero_Z_like(reference_embed)
+				x_embed = pt.cat((x_embed, prevZ), dim=1)	#append prevZ to x_embed
+
+			if(trainOrTest and trainLocal):
+				x_embed = x_embed.detach()
+				target_embeddings = target_embeddings.detach()
+				Z = self._iterate_local(x_embed, Z, target_embeddings, y, optim, train_final_only=trainFinalIterationOnly)
+				with pt.no_grad():
+					final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+					total_loss, logits, classification_loss, embedding_alignment_loss, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
+				loss = total_loss.detach()
+				accuracy = self.accuracyFunction(logits, y)
+				self.last_Z = activated_Z.detach()
+				self.last_logits = logits.detach()
+			else:
+				if(trainOrTest):
+					x_embed = x_embed.requires_grad_()
+				target_embeddings = target_embeddings.detach()
+				final_target = self._target_embedding_for_layer(target_embeddings, final_step_index)
+				Z = self._iterate_nonlocal(x_embed, Z, train_final_only=trainOrTest and trainFinalIterationOnly)
+				loss, logits, _, _, activated_Z = self._compute_total_loss(Z, final_target, y, layer_index=final_step_index)
+				accuracy = self.accuracyFunction(logits, y)
+				self.last_Z = activated_Z.detach()
+				self.last_logits = logits.detach()
+				
+			# count how many are exactly correct
+			if(useSlidingWindow):
+				prevZ = Z
+				valid_count = 0
+				pad_id = self._pad_token_id
+				valid_mask = (y != pad_id)
+				valid_count = int(valid_mask.sum().item())
+				if valid_count > 0:
+					predictions = logits.detach().argmax(dim=1)
+					correct = predictions[valid_mask].eq(y[valid_mask]).sum().item()
+					total_correct_tokens += correct
+					total_valid_tokens += valid_count
+				if(valid_count > 0):
+					weighted_loss = loss * valid_count
+					if(lossAllWindows is None):
+						lossAllWindows = weighted_loss
+					else:
+						lossAllWindows = lossAllWindows + weighted_loss
+					lossWeightTotal += valid_count
+			else:
+				average_loss = loss
+				average_accuracy = accuracy
+		
+		if(useSlidingWindow):
+			scale = lossAllWindows.new_tensor(float(lossWeightTotal))
+			average_loss = lossAllWindows / scale
+			average_accuracy = total_correct_tokens / total_valid_tokens
+			
+		return average_loss, average_accuracy
+		
 
 	def _resolve_local_optimizer(self, optim, index):	
 		return optim[index]
@@ -395,12 +575,7 @@ class RPIANNmodel(nn.Module):
 			raise ValueError("Recursive layer schedule references a feed-forward layer, but no recursive feed-forward layer is configured.")
 		raise ValueError(f"Unsupported recursive layer type '{layer_type}'.")
 
-	def _iterate_local(self, x_embed, target_embeddings, y, optim, train_final_only=False):
-		reference_embed = x_embed
-		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
-			Z_state = self._zero_Z_like(reference_embed)
-		else:
-			Z_state = reference_embed
+	def _iterate_local(self, x_embed, Z, target_embeddings, y, optim, train_final_only=False):
 		update = None
 		if(self.use_recursive_layers):
 			final_step_index = max(0, self.recursion_steps - 1)
@@ -409,11 +584,11 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
+						update = self._local_step_forward(Z, x_for_layer, layer_ref=layer, index=step)
 				else:
 					layer_target = self._target_embedding_for_layer(target_embeddings, step)
-					update = self._local_step(Z_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
-				Z_state = self._applyResidual(Z_state, update)
+					update = self._local_step(Z, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				Z = self._applyResidual(Z, update)
 		else:
 			if(self.nonrecursive_layers is None or len(self.nonrecursive_layers) == 0):
 				raise ValueError("Non-recursive training requested, but no non-recursive layers are configured.")
@@ -422,19 +597,19 @@ class RPIANNmodel(nn.Module):
 				x_for_layer = x_embed
 				if(train_final_only and step != final_step_index):
 					with pt.no_grad():
-						update = self._local_step_forward(Z_state, x_for_layer, layer_ref=layer, index=step)
+						update = self._local_step_forward(Z, x_for_layer, layer_ref=layer, index=step)
 				else:
 					layer_target = self._target_embedding_for_layer(target_embeddings, step)
-					update = self._local_step(Z_state, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
-				Z_state = self._applyResidual(Z_state, update)
+					update = self._local_step(Z, x_for_layer, layer_target, y, optim, index=step, layer_ref=layer)
+				Z = self._applyResidual(Z, update)
 
 		if(update is None):
-			update = Z_state
+			update = Z
 		return update
 
-	def _local_step(self, base, x_embed, target_embedding, y, optim, index, layer_ref=None):
+	def _local_step(self, Z, x_embed, target_embedding, y, optim, index, layer_ref=None):
 		opt = self._resolve_local_optimizer(optim, index)
-		Z = self._local_step_forward(base, x_embed, layer_ref, index=index)
+		Z = self._local_step_forward(Z, x_embed, layer_ref, index=index)
 		total_loss, *_ = self._compute_total_loss(Z, target_embedding, y, layer_index=index)
 		opt.zero_grad()
 		total_loss.backward()
@@ -442,30 +617,25 @@ class RPIANNmodel(nn.Module):
 		Z = Z.detach()
 		return Z
 
-	def _local_step_forward(self, base, x_embed, layer_ref=None, index=None):
+	def _local_step_forward(self, Z, x_embed, layer_ref=None, index=None):
 		if(self.use_recursive_layers):
-			Z = self._iterate_forward_recursive(base, x_embed, layer_ref=layer_ref, index=index)
+			Z = self._iterate_forward_recursive(Z, x_embed, layer_ref=layer_ref, index=index)
 		else:
-			Z = self._iterate_forward_nonrecursive(base, x_embed, layer_ref)
+			Z = self._iterate_forward_nonrecursive(Z, x_embed, layer_ref)
 		return Z
 	
-	def _iterate_forward_recursive(self, base, x_embed, layer_ref=None, index=None):
+	def _iterate_forward_recursive(self, Z, x_embed, layer_ref=None, index=None):
 		layer = layer_ref if layer_ref is not None else self.recursive_layer
 		if(layer is None):
 			raise ValueError("Recursive layer reference is not configured.")
-		out = layer(base, x_embed)
+		out = layer(Z, x_embed)
 		return out
 	
-	def _iterate_forward_nonrecursive(self, base, x_embed, layer_ref):
-		out = layer_ref(base, x_embed)
+	def _iterate_forward_nonrecursive(self, Z, x_embed, layer_ref):
+		out = layer_ref(Z, x_embed)
 		return out
 	
-	def _iterate_nonlocal(self, x_embed, train_final_only=False):
-		reference_embed = x_embed
-		if(initialiseZzero or reference_embed.shape[1] != self._y_feature_size):
-			Z = self._zero_Z_like(reference_embed)
-		else:
-			Z = reference_embed
+	def _iterate_nonlocal(self, x_embed, Z, train_final_only=False):
 		if(self.use_recursive_layers):
 			final_step_index = max(0, self.recursion_steps - 1)
 			for step in range(self.recursion_steps):
@@ -499,8 +669,26 @@ class RPIANNmodel(nn.Module):
 			
 	def _compute_total_loss(self, Z, target_embedding, y, layer_index=None):
 		logits = self.project_to_classes(Z, layer_index=layer_index)
-		classification_loss = self.lossFunctionFinal(logits, y)
-		embedding_alignment_loss = F.mse_loss(Z, target_embedding)
+		if(useNLPDataset):
+			valid_mask = None
+			if(self._pad_token_id is not None and y.dim() > 0):
+				valid_mask = (y != self._pad_token_id)
+			raw_classification_loss = self.lossFunctionFinal(logits, y)
+			if(raw_classification_loss.dim() == 0):
+				classification_loss = raw_classification_loss
+			else:
+				if(valid_mask is not None):
+					filtered = raw_classification_loss[valid_mask]
+				else:
+					filtered = raw_classification_loss
+				if(filtered.numel() == 0):
+					classification_loss = logits.new_tensor(0.0)
+				else:
+					classification_loss = filtered.mean()
+			embedding_alignment_loss = self._masked_mse(Z, target_embedding, valid_mask=valid_mask)
+		else:
+			classification_loss = self.lossFunctionFinal(logits, y)
+			embedding_alignment_loss = F.mse_loss(Z, target_embedding)
 		if(useClassificationLayerLoss):
 			if(useClassificationLayerLossStrict):
 				total_loss = classification_loss
@@ -560,6 +748,8 @@ class RPIANNmodel(nn.Module):
 	def _extract_projection_weight(self, module):
 		if isinstance(module, nn.Linear):
 			return module.weight
+		if isinstance(module, nn.Embedding):
+			return module.weight.transpose(0, 1)
 		if isinstance(module, nn.Sequential):
 			for submodule in reversed(list(module)):
 				if isinstance(submodule, nn.Linear):
@@ -588,10 +778,16 @@ class RPIANNmodel(nn.Module):
 				layer_embedding = RPIANNpt_RPIANNmodelCNNprojection.project_exemplar_images(self, exemplar_images, module=module)
 				layer_embeddings.append(layer_embedding.unsqueeze(0))
 		else:
-			y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
+			if useNLPDataset:
+				y_indices = y.long()
+			else:
+				y_one_hot = F.one_hot(y, num_classes=self.config.outputLayerSize).float()
 			layer_embeddings = []
 			for module in self.target_projection_layers:
-				layer_embedding = module(y_one_hot)
+				if isinstance(module, nn.Embedding):
+					layer_embedding = module(y_indices)
+				else:
+					layer_embedding = module(y_one_hot)
 				layer_embedding = self.target_projection_activation(layer_embedding)
 				layer_embedding = self.target_projection_activation_tanh(layer_embedding)
 				layer_embeddings.append(layer_embedding.unsqueeze(0))
@@ -601,7 +797,15 @@ class RPIANNmodel(nn.Module):
 		return target_embeddings
 	
 	def encode_inputs(self, x):
-		input_embedding = self.input_projection(x)
+		if isinstance(self.input_projection, nn.Embedding):
+			token_ids = x.long()
+			if(token_ids.dim() == 2 and token_ids.shape[1] == 1):
+				token_ids = token_ids.squeeze(1)
+			input_embedding = self.input_projection(token_ids)
+			if(input_embedding.dim() == 3 and input_embedding.shape[1] == 1):
+				input_embedding = input_embedding.squeeze(1)
+		else:
+			input_embedding = self.input_projection(x)
 		input_embedding = self.input_projection_activation(input_embedding)
 		input_embedding = self.input_projection_activation_tanh(input_embedding)
 		return input_embedding

@@ -33,11 +33,10 @@ import torch
 from tqdm.auto import tqdm
 from torch import optim
 from torch.optim.lr_scheduler import StepLR, LambdaLR, SequentialLR
+import GPUtil
 import time
 
 from ANNpt_globalDefs import *
-if(debugPrintGPUusage):
-	import GPUtil
 
 if(useAlgorithmVICRegANN):
 	import VICRegANNpt_VICRegANN as ANNpt_algorithm
@@ -61,7 +60,11 @@ elif(useAlgorithmRPIANN):
 	import RPIANNpt_RPIANN as ANNpt_algorithm
 elif(useAlgorithmANN):
 	import ANNpt_ANN as ANNpt_algorithm
-
+elif(useAlgorithmSUANN):
+	import LREANNpt_SUANN as ANNpt_algorithm
+elif(useAlgorithmATNLP):
+	import ATNLPpt_ATNLP as ANNpt_algorithm
+		
 if(useSignedWeights):
 	import ANNpt_linearSublayers
 import ANNpt_data
@@ -183,7 +186,11 @@ def run_projection_autoencoder_pretraining(model, dataset):
 
 def processDataset(trainOrTest, dataset, model):
 	if(trainOrTest):
-		if(useAlgorithmEISANI and trainLocal):
+		if(useCustomLearningAlgorithm):
+			optim = []
+		elif(useAlgorithmATNLP and trainLocal):
+			optim = [createOptimiser(model)] * ATNLPmultiLevels
+		elif(useAlgorithmEISANI and trainLocal):
 			optim = []
 		elif(useAlgorithmEIANN and trainLocal):
 			optim = []
@@ -204,7 +211,6 @@ def processDataset(trainOrTest, dataset, model):
 	totalAccuracyCount = 0
 
 	fieldTypeList = ANNpt_data.createFieldTypeList(dataset)
-	#print("fieldTypeList = ", fieldTypeList)
 
 	if(trainOrTest):
 		run_projection_autoencoder_pretraining(model, dataset)
@@ -258,10 +264,10 @@ def processDataset(trainOrTest, dataset, model):
 						if(debugPrintGPUusage):
 							if batchIndex % 100 == 0:
 								print_gpu_utilization()
-
+						
 						if(debugOnlyPrintStreamedWikiArticleTitles):
 							continue
-
+							
 						if(trainOrTest):
 							loss, accuracy = trainBatch(batchIndex, batch, model, optim, l, fieldTypeList)
 						else:
@@ -270,15 +276,15 @@ def processDataset(trainOrTest, dataset, model):
 						if(l == maxLayer-1):
 							totalAccuracy = totalAccuracy + accuracy
 							totalAccuracyCount += 1
-
+								
 						if(printAccuracyRunningAverage):
 							(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
-
+						
 						loop.set_description(f'Epoch {epoch}')
 						loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
 						if(useCloudExecution):
 							print_tqdm_output(epoch, start_time=startTime, batch_index=batchIndex, loss=loss, accuracy=accuracy)
-
+						
 						if(useAlgorithmEISANI and limitConnections):
 							if(debugLimitConnectionsSequentialSANI):
 								model.executePostTrainPrune(trainOrTest)
@@ -296,6 +302,8 @@ def processDataset(trainOrTest, dataset, model):
 		if(useAlgorithmEISANI and limitConnections):
 			if(not debugLimitConnectionsSequentialSANI):
 				model.executePostTrainPrune(trainOrTest)
+		if(trainOrTest and useAlgorithmATNLP):
+			model.finaliseTrainedSnapshotDatabase()
 
 		if(saveModelTrain and trainOrTest):
 			saveModel(model)
@@ -350,7 +358,11 @@ def propagate(trainOrTest, batchIndex, batch, model, optim=None, l=None, fieldTy
 		print("x = ", x)
 		print("y = ", y)
 	
-	if(useAlgorithmEISANI):
+	if(useAlgorithmSUANN):
+		loss, accuracy = ANNpt_algorithm.trainOrTestModel(model, trainOrTest, x, y, optim, l)
+	elif(useCustomLearningAlgorithm):
+		loss, accuracy = model(trainOrTest, x, y, optim, l, batchIndex, fieldTypeList)
+	elif(useAlgorithmEISANI):
 		loss, accuracy = ANNpt_algorithm.trainOrTestModel(model, trainOrTest, x, y, optim, l, batchIndex, fieldTypeList)
 	else:
 		loss, accuracy = model(trainOrTest, x, y, optim, l)
@@ -370,3 +382,4 @@ def print_tqdm_output(epoch: int, start_time: float, batch_index: int, loss: flo
 					
 if(__name__ == '__main__'):
 	main()
+
